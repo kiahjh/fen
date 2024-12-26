@@ -1,0 +1,20 @@
+[package]
+name = "fen"
+version = "0.1.0"
+description = "The command line interface for Fen"
+edition = "2021"
+repository = "https://github.com/kiahjh/modeler"
+categories = ["command-line-utilities", "development-tools::ffi"]
+keywords = ["schema", "type-safety", "codegen", "ffi", "http", "api", "multi-language"]
+license = "MIT"
+readme = "README.md"
+
+[lints.clippy]
+pedantic = "warn"
+nursery = "warn"
+perf = "warn"
+correctness = "warn"
+suspicious = "warn"
+style = "warn"
+complexity = "warn"
+cargo = "warn"
