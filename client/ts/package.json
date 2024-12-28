@@ -1,17 +1,14 @@
 {
   "name": "fen-client",
-  "version": "0.1.0",
-  "main": "index.ts",
-  "scripts": {},
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/kiahjh/fen.git"
+  "module": "index.ts",
+  "type": "module",
+  "bin": {
+    "generate-types": "bin/generate-types.ts"
   },
-  "author": "Miciah Henderson",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/kiahjh/fen/issues"
+  "devDependencies": {
+    "@types/bun": "latest"
   },
-  "homepage": "https://github.com/kiahjh/fen#readme",
-  "description": ""
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
 }

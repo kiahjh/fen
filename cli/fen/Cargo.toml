@@ -18,3 +18,8 @@ suspicious = "warn"
 style = "warn"
 complexity = "warn"
 cargo = "warn"
+
+[dependencies]
+parser = { path = "../parser" }
+serde = "1.0.217"
+serde_json = "1.0.134"

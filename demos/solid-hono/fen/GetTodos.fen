@@ -1,0 +1,15 @@
+name: "GetTodos"
+description: "Fetches all todos"
+
+---
+
+@output [Todo]
+
+---
+
+Todo {
+  name: String
+  description: String?
+  due: Date?
+  completed: Bool
+}

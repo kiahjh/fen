@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {
-    // primitives
+    // types
     Int,
     Float,
     String,
@@ -17,11 +17,10 @@ pub enum TokenKind {
     RightBrace,
     LeftBracket,
     RightBracket,
-    Comma,
-
-    // keywords
-    Struct,
-    Enum,
+    At,
+    Rule,
+    StringLiteral(String),
+    BoolLiteral(bool),
 
     // identifiers
     Identifier(String),

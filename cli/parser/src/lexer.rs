@@ -39,20 +39,20 @@ impl Lexer {
         }
     }
 
-    /// # Errors
-    ///
-    /// Returns an error if the lexer encounters a forbidden character or syntax error.
-    pub fn peek_tok(&mut self) -> Result<Option<&Token>, Error> {
+    pub fn reset(&mut self) {
+        self.pos = 0;
+        self.has_errored = false;
+        self.peek_token = None;
+    }
+
+    pub(crate) fn peek_tok(&mut self) -> Result<Option<&Token>, Error> {
         if self.peek_token.is_none() {
             self.peek_token = self.next_tok()?;
         }
         Ok(self.peek_token.as_ref())
     }
 
-    /// # Errors
-    ///
-    /// Returns an error if the lexer encounters a forbidden character or syntax error.
-    pub fn next_tok(&mut self) -> Result<Option<Token>, Error> {
+    pub(crate) fn next_tok(&mut self) -> Result<Option<Token>, Error> {
         if let Some(peeked) = self.peek_token.take() {
             return Ok(Some(peeked));
         }
@@ -77,25 +77,30 @@ impl Lexer {
                 b')' => return_val = Ok(Some(Token::new(TokenKind::RightParen, self.pos - 1))),
                 b'[' => return_val = Ok(Some(Token::new(TokenKind::LeftBracket, self.pos - 1))),
                 b']' => return_val = Ok(Some(Token::new(TokenKind::RightBracket, self.pos - 1))),
-                b',' => return_val = Ok(Some(Token::new(TokenKind::Comma, self.pos - 1))),
+                b'@' => return_val = Ok(Some(Token::new(TokenKind::At, self.pos - 1))),
                 b':' => return_val = Ok(Some(Token::new(TokenKind::Colon, self.pos - 1))),
                 b'?' => return_val = Ok(Some(Token::new(TokenKind::QuestionMark, self.pos - 1))),
 
+                // string literals
+                b'"' => {
+                    return_val = Ok(Some(Token::new(
+                        TokenKind::StringLiteral(self.parse_string_literal()?),
+                        self.pos - 1,
+                    )));
+                }
+
                 // illegal chars
                 b'%' => return_val = Err(Error::new("Forbidden character '%'", self.pos - 1)),
-                b'@' => return_val = Err(Error::new("Forbidden character '@'", self.pos - 1)),
                 b'!' => return_val = Err(Error::new("Forbidden character '!'", self.pos - 1)),
                 b'&' => return_val = Err(Error::new("Forbidden character '&'", self.pos - 1)),
                 b'*' => return_val = Err(Error::new("Forbidden character '*'", self.pos - 1)),
                 b'+' => return_val = Err(Error::new("Forbidden character '+'", self.pos - 1)),
-                b'-' => return_val = Err(Error::new("Forbidden character '-'", self.pos - 1)),
                 b'/' => return_val = Err(Error::new("Forbidden character '/'", self.pos - 1)),
                 b'<' => return_val = Err(Error::new("Forbidden character '<'", self.pos - 1)),
                 b'>' => return_val = Err(Error::new("Forbidden character '>'", self.pos - 1)),
                 b'=' => return_val = Err(Error::new("Forbidden character '='", self.pos - 1)),
                 b'.' => return_val = Err(Error::new("Forbidden character '.'", self.pos - 1)),
                 b';' => return_val = Err(Error::new("Forbidden character ';'", self.pos - 1)),
-                b'"' => return_val = Err(Error::new("Forbidden character '\"'", self.pos - 1)),
                 b'\'' => return_val = Err(Error::new("Forbidden character '''", self.pos - 1)),
                 b'\\' => return_val = Err(Error::new("Forbidden character '\\'", self.pos - 1)),
                 b'`' => return_val = Err(Error::new("Forbidden character '`'", self.pos - 1)),
@@ -135,13 +140,34 @@ impl Lexer {
         self.chars.get(self.pos)
     }
 
+    fn parse_string_literal(&mut self) -> Result<String, Error> {
+        let initial_pos = self.pos - 1;
+
+        while self.peek_char().map_or(false, |c| *c != b'"') {
+            self.pos += 1;
+        }
+
+        // consume the closing quote
+        self.pos += 1;
+
+        let slice = &self.chars[initial_pos + 1..self.pos - 1]; // exclude the quotes
+
+        std::str::from_utf8(slice).map_or(
+            Err(Error {
+                message: "Invalid UTF8 encoding".to_string(),
+                position: initial_pos,
+            }),
+            |s| Ok(s.to_string()),
+        )
+    }
+
     fn parse_multichar_token(&mut self) -> Result<TokenKind, Error> {
         let initial_pos = self.pos - 1;
 
         while self.peek_char().map_or(false, |c| match c {
             b'{' | b'}' | b'(' | b')' | b'[' | b']' | b',' | b':' | b'?' | b'%' | b'@' | b'!'
-            | b'&' | b'*' | b'+' | b'-' | b'/' | b'<' | b'>' | b'=' | b'.' | b';' | b'"'
-            | b'\'' | b'\\' | b'`' | b'~' | b'|' | b'^' => false,
+            | b'&' | b'*' | b'+' | b'/' | b'<' | b'>' | b'=' | b'.' | b';' | b'"' | b'\''
+            | b'\\' | b'`' | b'~' | b'|' | b'^' => false,
             _ => !c.is_ascii_whitespace(),
         }) {
             self.pos += 1;
@@ -150,14 +176,15 @@ impl Lexer {
         let slice = &self.chars[initial_pos..self.pos];
 
         match slice {
-            b"struct" => Ok(TokenKind::Struct),
-            b"enum" => Ok(TokenKind::Enum),
             b"Int" => Ok(TokenKind::Int),
             b"Float" => Ok(TokenKind::Float),
             b"Date" => Ok(TokenKind::Date),
             b"UUID" => Ok(TokenKind::Uuid),
             b"String" => Ok(TokenKind::String),
             b"Bool" => Ok(TokenKind::Bool),
+            b"true" => Ok(TokenKind::BoolLiteral(true)),
+            b"false" => Ok(TokenKind::BoolLiteral(false)),
+            b"---" => Ok(TokenKind::Rule),
             _ => std::str::from_utf8(slice).map_or(
                 Err(Error {
                     message: "Invalid UTF8 encoding".to_string(),
@@ -172,6 +199,7 @@ impl Lexer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     fn expect_tokens(file: &str, expected: &[TokenKind]) {
         let mut lexer = Lexer::new(file);
@@ -192,13 +220,13 @@ mod tests {
     fn single_char_tokens() {
         expect_tokens("{", &[TokenKind::LeftBrace]);
         expect_tokens("}", &[TokenKind::RightBrace]);
-        expect_tokens("(", &[TokenKind::LeftParen]);
-        expect_tokens(")", &[TokenKind::RightParen]);
         expect_tokens("[", &[TokenKind::LeftBracket]);
         expect_tokens("]", &[TokenKind::RightBracket]);
-        expect_tokens(",", &[TokenKind::Comma]);
+        expect_tokens("(", &[TokenKind::LeftParen]);
+        expect_tokens(")", &[TokenKind::RightParen]);
         expect_tokens(":", &[TokenKind::Colon]);
         expect_tokens("?", &[TokenKind::QuestionMark]);
+        expect_tokens("@", &[TokenKind::At]);
 
         expect_tokens("{ }", &[TokenKind::LeftBrace, TokenKind::RightBrace]);
 
@@ -206,9 +234,18 @@ mod tests {
     }
 
     #[test]
-    fn keywords() {
-        expect_tokens("struct", &[TokenKind::Struct]);
-        expect_tokens("enum", &[TokenKind::Enum]);
+    fn string_literals() {
+        expect_tokens(
+            r#""hello world""#,
+            &[TokenKind::StringLiteral("hello world".to_string())],
+        );
+        expect_tokens(
+            r#""hello world" "another string""#,
+            &[
+                TokenKind::StringLiteral("hello world".to_string()),
+                TokenKind::StringLiteral("another string".to_string()),
+            ],
+        );
     }
 
     #[test]
@@ -222,13 +259,13 @@ mod tests {
 
     #[test]
     fn mid_ident_bad_char() {
-        let mut lexer = Lexer::new("foo%bar {}");
+        let mut lexer = Lexer::new("Foo%bar {}");
 
         // should initially return the identifier "foo"
         assert_eq!(
             lexer.next_tok(),
             Ok(Some(Token::new(
-                TokenKind::Identifier("foo".to_string()),
+                TokenKind::Identifier("Foo".to_string()),
                 0
             )))
         );
@@ -247,80 +284,86 @@ mod tests {
     #[test]
     fn all_syntax() {
         expect_tokens(
-            r"
-                enum Something {
-                  one,
-                  two(Int),
-                  three([[Bool]?]?),
-                }
+            r#"
+            name: "GetTodos"
+            description: "Get all todos for a user"
+            authed: true
 
-                struct Test {
-                  foo: Int,
-                  bar: String,
-                  list: [Float],
-                  algo: Date?,
-                  algo_mas: [UUID],
-                  several_somethings: [Something],
-                }
-            ",
+            ---
+
+            @input { user_id: String }
+
+            @output [Todo]
+
+            ---
+
+            Todo {
+              name: String
+              due: Date?
+              priority: Priority?
+              subtasks: [Todo]
+            }
+
+            Priority (
+              low
+              medium
+              high
+              other(String)
+            )
+            "#,
             &[
-                TokenKind::Enum,
-                TokenKind::Identifier("Something".to_string()),
-                TokenKind::LeftBrace,
-                TokenKind::Identifier("one".to_string()),
-                TokenKind::Comma,
-                TokenKind::Identifier("two".to_string()),
-                TokenKind::LeftParen,
-                TokenKind::Int,
-                TokenKind::RightParen,
-                TokenKind::Comma,
-                TokenKind::Identifier("three".to_string()),
-                TokenKind::LeftParen,
-                TokenKind::LeftBracket,
-                TokenKind::LeftBracket,
-                TokenKind::Bool,
-                TokenKind::RightBracket,
-                TokenKind::QuestionMark,
-                TokenKind::RightBracket,
-                TokenKind::QuestionMark,
-                TokenKind::RightParen,
-                TokenKind::Comma,
-                TokenKind::RightBrace,
-                TokenKind::Struct,
-                TokenKind::Identifier("Test".to_string()),
-                TokenKind::LeftBrace,
-                TokenKind::Identifier("foo".to_string()),
+                TokenKind::Identifier("name".to_string()),
                 TokenKind::Colon,
-                TokenKind::Int,
-                TokenKind::Comma,
-                TokenKind::Identifier("bar".to_string()),
+                TokenKind::StringLiteral("GetTodos".to_string()),
+                TokenKind::Identifier("description".to_string()),
+                TokenKind::Colon,
+                TokenKind::StringLiteral("Get all todos for a user".to_string()),
+                TokenKind::Identifier("authed".to_string()),
+                TokenKind::Colon,
+                TokenKind::BoolLiteral(true),
+                TokenKind::Rule,
+                TokenKind::At,
+                TokenKind::Identifier("input".to_string()),
+                TokenKind::LeftBrace,
+                TokenKind::Identifier("user_id".to_string()),
                 TokenKind::Colon,
                 TokenKind::String,
-                TokenKind::Comma,
-                TokenKind::Identifier("list".to_string()),
-                TokenKind::Colon,
+                TokenKind::RightBrace,
+                TokenKind::At,
+                TokenKind::Identifier("output".to_string()),
                 TokenKind::LeftBracket,
-                TokenKind::Float,
+                TokenKind::Identifier("Todo".to_string()),
                 TokenKind::RightBracket,
-                TokenKind::Comma,
-                TokenKind::Identifier("algo".to_string()),
+                TokenKind::Rule,
+                TokenKind::Identifier("Todo".to_string()),
+                TokenKind::LeftBrace,
+                TokenKind::Identifier("name".to_string()),
+                TokenKind::Colon,
+                TokenKind::String,
+                TokenKind::Identifier("due".to_string()),
                 TokenKind::Colon,
                 TokenKind::Date,
                 TokenKind::QuestionMark,
-                TokenKind::Comma,
-                TokenKind::Identifier("algo_mas".to_string()),
+                TokenKind::Identifier("priority".to_string()),
+                TokenKind::Colon,
+                TokenKind::Identifier("Priority".to_string()),
+                TokenKind::QuestionMark,
+                TokenKind::Identifier("subtasks".to_string()),
                 TokenKind::Colon,
                 TokenKind::LeftBracket,
-                TokenKind::Uuid,
+                TokenKind::Identifier("Todo".to_string()),
                 TokenKind::RightBracket,
-                TokenKind::Comma,
-                TokenKind::Identifier("several_somethings".to_string()),
-                TokenKind::Colon,
-                TokenKind::LeftBracket,
-                TokenKind::Identifier("Something".to_string()),
-                TokenKind::RightBracket,
-                TokenKind::Comma,
                 TokenKind::RightBrace,
+                TokenKind::Identifier("Priority".to_string()),
+                TokenKind::LeftParen,
+                TokenKind::Identifier("low".to_string()),
+                TokenKind::Identifier("medium".to_string()),
+                TokenKind::Identifier("high".to_string()),
+                TokenKind::Identifier("other".to_string()),
+                TokenKind::LeftParen,
+                TokenKind::String,
+                TokenKind::RightParen,
+                TokenKind::RightParen,
             ],
         );
     }
