@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-  "fen",
+  "fen", "new-parser",
   "parser"
 ]

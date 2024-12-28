@@ -1,0 +1,17 @@
+{
+  "name": "fen-client",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kiahjh/fen.git"
+  },
+  "author": "Miciah Henderson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kiahjh/fen/issues"
+  },
+  "homepage": "https://github.com/kiahjh/fen#readme",
+  "description": ""
+}
