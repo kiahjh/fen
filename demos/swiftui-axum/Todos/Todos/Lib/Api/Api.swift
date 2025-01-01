@@ -1,4 +1,4 @@
-// Created by Fen v0.1.0 at 12:38:47 on 2025-01-01
+// Created by Fen v0.1.0 at 14:03:38 on 2025-01-01
 // Do not manually modify this file as it is automatically generated
 
 import Foundation
@@ -15,9 +15,17 @@ struct Fetcher {
   let jsonEncoder = JSONEncoder()
   let jsonDecoder = JSONDecoder()
 
-  func get<T>(from path: String) async throws -> Response<T> where T: Decodable {
+  func get<T>(from path: String, sessionToken: String?) async throws -> Response<T>
+    where T: Decodable {
     let url = URL(string: self.endpoint + path)!
-    let (data, _) = try await URLSession.shared.data(from: url)
+    var request = URLRequest(url: url)
+    request.httpMethod = "GET"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    if let sessionToken = sessionToken {
+      request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+    }
+
+    let (data, _) = try await URLSession.shared.data(for: request)
 
     let tag = try self.jsonDecoder.decode(ResponseType.self, from: data)
     if tag.type == "success" {
@@ -32,12 +40,16 @@ struct Fetcher {
   func post<T: Decodable, U: Encodable>(
     to path: String,
     with body: Input<U>,
-    returning type: T.Type
+    returning type: T.Type,
+    sessionToken: String? = nil
   ) async throws -> Response<T> {
     let url = URL(string: self.endpoint + path)!
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    if let sessionToken = sessionToken {
+      request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+    }
 
     let body = try self.jsonEncoder.encode(body)
     request.httpBody = body

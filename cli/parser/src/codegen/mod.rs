@@ -44,16 +44,10 @@ impl GenCode for FileNode {
         if let Some(input) = &self.input {
             match input {
                 IOType::Type(t) => {
-                    func_decl.push_str(&format!(
-                        "input: {}) async throws -> Response<",
-                        t.swift_client_code(ctx)
-                    ));
+                    func_decl.push_str(&format!("input: {}", t.swift_client_code(ctx)));
                 }
                 IOType::Enum(_) => {
-                    func_decl.push_str(&format!(
-                        "input: {}) async throws -> Response<",
-                        self.name.clone() + "Input"
-                    ));
+                    func_decl.push_str(&format!("input: {}", self.name.clone() + "Input"));
                 }
                 IOType::Struct(s) => {
                     let mut args_str = vec![];
@@ -61,12 +55,18 @@ impl GenCode for FileNode {
                         args_str.push(format!("{}: {}", name, t.swift_client_code(ctx)));
                     }
                     func_decl.push_str(&args_str.join(", "));
-                    func_decl.push_str(") async throws -> Response<");
                 }
             }
-        } else {
-            func_decl.push_str(") async throws -> Response<");
         }
+
+        // require session token if route is authed
+        if self.authed && self.input.is_some() {
+            func_decl.push_str(", sessionToken: String");
+        } else if self.authed {
+            func_decl.push_str("sessionToken: String");
+        }
+
+        func_decl.push_str(") async throws -> Response<");
 
         // function return type (derived from output)
         func_decl.push_str(format!("{return_type_name}> {{").as_str());
@@ -80,7 +80,15 @@ impl GenCode for FileNode {
             if self.input.is_some() {
                 "post(".to_string()
             } else {
-                format!("get(from: \"/{}\")", pascal_to_kebab(&self.name))
+                format!(
+                    "get(from: \"/{}\"{})",
+                    pascal_to_kebab(&self.name),
+                    if self.authed {
+                        ", sessionToken: sessionToken"
+                    } else {
+                        ""
+                    }
+                )
             }
         ));
 
@@ -103,7 +111,16 @@ impl GenCode for FileNode {
             lines.push(format!("      with: Input(payload: {input_payload}),"));
 
             // add the return type
-            lines.push(format!("      returning: {return_type_name}.self"));
+            lines.push(format!(
+                "      returning: {}.self{}",
+                return_type_name,
+                if self.authed { "," } else { "" }
+            ));
+
+            // add the session token
+            if self.authed {
+                lines.push("      sessionToken: sessionToken".to_string());
+            }
 
             lines.push("    )".to_string());
         }
@@ -262,6 +279,7 @@ mod swift_client_tests {
             r#"
 name: "GetTodos"
 description: "Fetches all todos"
+authed: true
 
 ---
 
@@ -283,8 +301,8 @@ import Foundation
 
 extension ApiClient {
   /// Fetches all todos
-  func getTodos() async throws -> Response<[Todo]> {
-    return try await self.fetcher.get(from: "/get-todos")
+  func getTodos(sessionToken: String) async throws -> Response<[Todo]> {
+    return try await self.fetcher.get(from: "/get-todos", sessionToken: sessionToken)
   }
 }
 
@@ -318,11 +336,12 @@ import Foundation
 
 extension ApiClient {
   /// Completes or uncompletes a todo
-  func toggleTodoCompletion(input: UUID) async throws -> Response<NoData> {
+  func toggleTodoCompletion(input: UUID, sessionToken: String) async throws -> Response<NoData> {
     return try await self.fetcher.post(
       to: "/toggle-todo-completion",
       with: Input(payload: input),
-      returning: NoData.self
+      returning: NoData.self,
+      sessionToken: sessionToken
     )
   }
 }
@@ -406,6 +425,7 @@ enum ThingType: Decodable {
         expect_swift(
             r#"
 name: "Test"
+authed: true
 
 ---
 
@@ -420,11 +440,12 @@ name: "Test"
 import Foundation
 
 extension ApiClient {
-  func test(id: UUID, foo: String, bar: [Date]?) async throws -> Response<NoData> {
+  func test(id: UUID, foo: String, bar: [Date]?, sessionToken: String) async throws -> Response<NoData> {
     return try await self.fetcher.post(
       to: "/test",
       with: Input(payload: TestInput(id: id, foo: foo, bar: bar)),
-      returning: NoData.self
+      returning: NoData.self,
+      sessionToken: sessionToken
     )
   }
 }
@@ -482,6 +503,7 @@ struct YetAnotherTestInput: Encodable {
         expect_swift(
             r#"
 name: "Test"
+authed: true
 
 ---
 
@@ -490,8 +512,8 @@ name: "Test"
             .trim(),
             r#"
 extension ApiClient {
-  func test() async throws -> Response<Int> {
-    return try await self.fetcher.get(from: "/test")
+  func test(sessionToken: String) async throws -> Response<Int> {
+    return try await self.fetcher.get(from: "/test", sessionToken: sessionToken)
   }
 }
             "#
@@ -505,6 +527,7 @@ extension ApiClient {
             r#"
 name: "EnumTest"
 description: "Just testing out enums"
+authed: true
 
 ---
 
@@ -532,8 +555,8 @@ Job (
             r#"
 extension ApiClient {
   /// Just testing out enums
-  func enumTest() async throws -> Response<EnumTestOutput> {
-    return try await self.fetcher.get(from: "/enum-test")
+  func enumTest(sessionToken: String) async throws -> Response<EnumTestOutput> {
+    return try await self.fetcher.get(from: "/enum-test", sessionToken: sessionToken)
   }
 }
 

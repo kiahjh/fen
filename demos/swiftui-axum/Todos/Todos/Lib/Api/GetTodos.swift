@@ -1,4 +1,4 @@
-// Created by Fen v0.1.0 at 12:38:47 on 2025-01-01
+// Created by Fen v0.1.0 at 14:03:38 on 2025-01-01
 // Do not manually modify this file as it is automatically generated
 
 import Foundation
@@ -17,4 +17,3 @@ struct Todo: Decodable {
   var due: Date?
   var isCompleted: Bool
 }
-
