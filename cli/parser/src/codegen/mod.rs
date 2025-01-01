@@ -9,6 +9,7 @@ pub trait GenCode {
 }
 
 impl GenCode for FileNode {
+    #[allow(clippy::too_many_lines)]
     fn swift_client_code(&self) -> String {
         // helpers:
         let return_type_name = self.output.as_ref().map_or_else(
@@ -22,6 +23,12 @@ impl GenCode for FileNode {
 
         // open the extension
         let mut lines = vec!["extension ApiClient {".to_string()];
+
+        // add documentation
+        if let Some(description) = &self.description {
+            lines.push(format!("  /// {description}"));
+        }
+
         // declare the function
         let mut func_decl = format!("  func {}(", pascal_to_camel(&self.name));
 
@@ -132,7 +139,12 @@ impl GenCode for FileNode {
             lines.push(enum_def.swift_client_code());
         }
 
-        lines.join("\n")
+        let code = lines.join("\n");
+        if code.contains("Date") || code.contains("UUID") {
+            "import Foundation\n\n".to_string() + &code
+        } else {
+            code
+        }
     }
 }
 
@@ -223,7 +235,10 @@ Todo {
             "#
             .trim(),
             r#"
+import Foundation
+
 extension ApiClient {
+  /// Fetches all todos
   func getTodos() async throws -> Response<[Todo]> {
     return try await self.fetcher.get(from: "/get-todos")
   }
@@ -255,7 +270,10 @@ authed: true
             "#
             .trim(),
             r#"
+import Foundation
+
 extension ApiClient {
+  /// Completes or uncompletes a todo
   func toggleTodoCompletion(input: UUID) async throws -> Response<NoData> {
     return try await self.fetcher.post(
       to: "/toggle-todo-completion",
@@ -302,6 +320,8 @@ ThingType (
             "#
             .trim(),
             r#"
+import Foundation
+
 extension ApiClient {
   func test(id: UUID, foo: String, bar: [Date]?) async throws -> Response<TestOutput> {
     return try await self.fetcher.post(
@@ -353,6 +373,8 @@ name: "Test"
             "#
             .trim(),
             r#"
+import Foundation
+
 extension ApiClient {
   func test(id: UUID, foo: String, bar: [Date]?) async throws -> Response<NoData> {
     return try await self.fetcher.post(
@@ -390,6 +412,8 @@ name: "YetAnotherTest"
             "#
             .trim(),
             r#"
+import Foundation
+
 extension ApiClient {
   func yetAnotherTest(id: UUID, foo: String) async throws -> Response<[UUID]> {
     return try await self.fetcher.post(
@@ -403,6 +427,28 @@ extension ApiClient {
 struct YetAnotherTestInput: Encodable {
   var id: UUID
   var foo: String
+}
+            "#
+            .trim(),
+        );
+    }
+
+    #[test]
+    fn without_foundation() {
+        expect_swift(
+            r#"
+name: "Test"
+
+---
+
+@output Int
+            "#
+            .trim(),
+            r#"
+extension ApiClient {
+  func test() async throws -> Response<Int> {
+    return try await self.fetcher.get(from: "/test")
+  }
 }
             "#
             .trim(),
