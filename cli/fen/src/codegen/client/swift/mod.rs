@@ -1,5 +1,5 @@
 use crate::codegen::write_to_file;
-use parser::codegen::GenCode;
+use parser::codegen::{Context, GenCode};
 
 pub fn gen_swift_client(
     path: &str,
@@ -22,7 +22,10 @@ pub fn gen_swift_client(
         write_to_file(
             path,
             &format!("{}.swift", route.name),
-            &route.swift_client_code(),
+            &route.swift_client_code(&Context {
+                override_name: None,
+                codeability: None,
+            }),
             &comment,
         )?;
     }

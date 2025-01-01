@@ -1,23 +1,31 @@
-use name_transforms::{pascal_to_camel, pascal_to_kebab, snake_to_camel};
-
 use crate::ast::{EnumDefinition, Field, FileNode, IOType, Primitive, StructDefinition, Type};
+use name_transforms::{pascal_to_camel, pascal_to_kebab, snake_to_camel};
 
 mod name_transforms;
 
+pub enum Codeability {
+    Encodable,
+    Decodable,
+}
+
+pub struct Context {
+    pub override_name: Option<String>,
+    pub codeability: Option<Codeability>,
+}
+
 pub trait GenCode {
-    fn swift_client_code(&self) -> String;
+    fn swift_client_code(&self, ctx: &Context) -> String;
 }
 
 impl GenCode for FileNode {
     #[allow(clippy::too_many_lines)]
-    fn swift_client_code(&self) -> String {
+    fn swift_client_code(&self, ctx: &Context) -> String {
         // helpers:
         let return_type_name = self.output.as_ref().map_or_else(
             || "NoData".to_string(),
             |output| match output {
-                IOType::Type(t) => t.swift_client_code(),
-                IOType::Struct(_) => self.name.clone() + "Output",
-                IOType::Enum(_) => todo!(),
+                IOType::Type(t) => t.swift_client_code(ctx),
+                IOType::Struct(_) | IOType::Enum(_) => self.name.clone() + "Output",
             },
         );
 
@@ -38,18 +46,23 @@ impl GenCode for FileNode {
                 IOType::Type(t) => {
                     func_decl.push_str(&format!(
                         "input: {}) async throws -> Response<",
-                        t.swift_client_code()
+                        t.swift_client_code(ctx)
+                    ));
+                }
+                IOType::Enum(_) => {
+                    func_decl.push_str(&format!(
+                        "input: {}) async throws -> Response<",
+                        self.name.clone() + "Input"
                     ));
                 }
                 IOType::Struct(s) => {
                     let mut args_str = vec![];
                     for Field { name, t } in &s.fields {
-                        args_str.push(format!("{}: {}", name, t.swift_client_code()));
+                        args_str.push(format!("{}: {}", name, t.swift_client_code(ctx)));
                     }
                     func_decl.push_str(&args_str.join(", "));
                     func_decl.push_str(") async throws -> Response<");
                 }
-                IOType::Enum(_) => todo!(),
             }
         } else {
             func_decl.push_str(") async throws -> Response<");
@@ -78,7 +91,7 @@ impl GenCode for FileNode {
 
             // add the input
             let input_payload = match &self.input.as_ref().unwrap() {
-                IOType::Type(_) => "input".to_string(),
+                IOType::Type(_) | IOType::Enum(_) => "input".to_string(),
                 IOType::Struct(s) => {
                     let mut pairs = vec![];
                     for field in &s.fields {
@@ -86,7 +99,6 @@ impl GenCode for FileNode {
                     }
                     format!("{}({})", self.name.clone() + "Input", pairs.join(", "))
                 }
-                IOType::Enum(_) => todo!(),
             };
             lines.push(format!("      with: Input(payload: {input_payload}),"));
 
@@ -99,44 +111,52 @@ impl GenCode for FileNode {
         lines.push("  }".to_string());
         lines.push("}".to_string());
 
-        // if input is a struct, define it
+        // if input is a struct or enum, define it
         if let Some(IOType::Struct(s)) = &self.input {
             lines.push(String::new());
-            lines.push(format!("struct {}Input: Encodable {{", self.name.clone()));
-            for field in &s.fields {
-                lines.push(format!(
-                    "  var {}: {}",
-                    field.name,
-                    field.t.swift_client_code()
-                ));
-            }
-            lines.push("}".to_string());
+            lines.push(s.swift_client_code(&Context {
+                override_name: Some(self.name.clone() + "Input"),
+                codeability: Some(Codeability::Encodable),
+            }));
+        } else if let Some(IOType::Enum(e)) = &self.input {
+            lines.push(String::new());
+            lines.push(e.swift_client_code(&Context {
+                override_name: Some(self.name.clone() + "Input"),
+                codeability: Some(Codeability::Encodable),
+            }));
         }
 
-        // if output is a struct, define it
+        // if output is a struct or enum, define it
         if let Some(IOType::Struct(s)) = &self.output {
             lines.push(String::new());
-            lines.push(format!("struct {}Output: Decodable {{", self.name.clone()));
-            for field in &s.fields {
-                lines.push(format!(
-                    "  var {}: {}",
-                    field.name,
-                    field.t.swift_client_code()
-                ));
-            }
-            lines.push("}".to_string());
+            lines.push(s.swift_client_code(&Context {
+                override_name: Some(self.name.clone() + "Output"),
+                codeability: Some(Codeability::Decodable),
+            }));
+        } else if let Some(IOType::Enum(e)) = &self.output {
+            lines.push(String::new());
+            lines.push(e.swift_client_code(&Context {
+                override_name: Some(self.name.clone() + "Output"),
+                codeability: Some(Codeability::Decodable),
+            }));
         }
 
         // generate definitions for helper structs
         for struct_def in &self.structs {
             lines.push(String::new());
-            lines.push(struct_def.swift_client_code());
+            lines.push(struct_def.swift_client_code(&Context {
+                override_name: None,
+                codeability: Some(Codeability::Decodable),
+            }));
         }
 
         // generate definitions for helper enums
         for enum_def in &self.enums {
             lines.push(String::new());
-            lines.push(enum_def.swift_client_code());
+            lines.push(enum_def.swift_client_code(&Context {
+                override_name: None,
+                codeability: Some(Codeability::Decodable),
+            }));
         }
 
         let code = lines.join("\n");
@@ -149,14 +169,21 @@ impl GenCode for FileNode {
 }
 
 impl GenCode for StructDefinition {
-    fn swift_client_code(&self) -> String {
+    fn swift_client_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
-        lines.push(format!("struct {}: Decodable {{", self.name));
+        lines.push(format!(
+            "struct {}{} {{",
+            ctx.override_name.as_ref().map_or(&self.name, |n| n),
+            ctx.codeability.as_ref().map_or("", |c| match c {
+                Codeability::Encodable => ": Encodable",
+                Codeability::Decodable => ": Decodable",
+            })
+        ));
         for field in &self.fields {
             lines.push(format!(
                 "  var {}: {}",
                 snake_to_camel(&field.name),
-                field.t.swift_client_code()
+                field.t.swift_client_code(ctx)
             ));
         }
         lines.push("}".to_string());
@@ -165,11 +192,25 @@ impl GenCode for StructDefinition {
 }
 
 impl GenCode for EnumDefinition {
-    fn swift_client_code(&self) -> String {
+    fn swift_client_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
-        lines.push(format!("enum {}: Decodable {{", self.name));
+        lines.push(format!(
+            "enum {}{} {{",
+            ctx.override_name.as_ref().map_or(&self.name, |n| n),
+            ctx.codeability.as_ref().map_or("", |c| match c {
+                Codeability::Encodable => ": Encodable",
+                Codeability::Decodable => ": Decodable",
+            })
+        ));
         for variant in &self.variants {
-            lines.push(format!("  case {}", variant.name));
+            lines.push(format!(
+                "  case {}{}",
+                variant.name,
+                variant
+                    .t
+                    .as_ref()
+                    .map_or_else(String::new, |t| format!("({})", t.swift_client_code(ctx)))
+            ));
         }
         lines.push("}".to_string());
         lines.join("\n")
@@ -177,18 +218,18 @@ impl GenCode for EnumDefinition {
 }
 
 impl GenCode for Type {
-    fn swift_client_code(&self) -> String {
+    fn swift_client_code(&self, ctx: &Context) -> String {
         match &self {
             Self::Named(n) => n.clone(),
-            Self::Optional(t) => format!("{}?", t.swift_client_code()),
-            Self::Array(t) => format!("[{}]", t.swift_client_code()),
-            Self::Primitive(p) => p.swift_client_code(),
+            Self::Optional(t) => format!("{}?", t.swift_client_code(ctx)),
+            Self::Array(t) => format!("[{}]", t.swift_client_code(ctx)),
+            Self::Primitive(p) => p.swift_client_code(ctx),
         }
     }
 }
 
 impl GenCode for Primitive {
-    fn swift_client_code(&self) -> String {
+    fn swift_client_code(&self, _ctx: &Context) -> String {
         match &self {
             Self::Int => "Int".to_string(),
             Self::Float => "Double".to_string(),
@@ -201,14 +242,17 @@ impl GenCode for Primitive {
 }
 
 mod swift_client_tests {
-    use super::GenCode;
+    use super::{Context, GenCode};
     use crate::Parser;
     use pretty_assertions::assert_eq;
 
     fn expect_swift(fen_code: &str, swift_code: &str) {
         let mut parser = Parser::new(fen_code);
         let ast = parser.parse().unwrap();
-        let swift = ast.swift_client_code();
+        let swift = ast.swift_client_code(&Context {
+            override_name: None,
+            codeability: None,
+        });
         assert_eq!(swift, swift_code);
     }
 
@@ -449,6 +493,102 @@ extension ApiClient {
   func test() async throws -> Response<Int> {
     return try await self.fetcher.get(from: "/test")
   }
+}
+            "#
+            .trim(),
+        );
+    }
+
+    #[test]
+    fn enum_output_with_helpers() {
+        expect_swift(
+            r#"
+name: "EnumTest"
+description: "Just testing out enums"
+
+---
+
+@output (
+  single
+  married(Spouse)
+)
+
+---
+
+Spouse {
+  name: String
+  age: Int
+  has_beard: Bool
+  ocupation: Job
+}
+
+Job (
+  developer
+  construction
+  other(String?)
+)
+            "#
+            .trim(),
+            r#"
+extension ApiClient {
+  /// Just testing out enums
+  func enumTest() async throws -> Response<EnumTestOutput> {
+    return try await self.fetcher.get(from: "/enum-test")
+  }
+}
+
+enum EnumTestOutput: Decodable {
+  case single
+  case married(Spouse)
+}
+
+struct Spouse: Decodable {
+  var name: String
+  var age: Int
+  var hasBeard: Bool
+  var ocupation: Job
+}
+
+enum Job: Decodable {
+  case developer
+  case construction
+  case other(String?)
+}
+            "#
+            .trim(),
+        );
+    }
+
+    #[test]
+    fn enum_input() {
+        expect_swift(
+            r#"
+name: "AnotherEnumTest"
+description: "Just testing out some more enums"
+
+---
+
+@input (
+  a
+  b(Int)
+)
+            "#
+            .trim(),
+            r#"
+extension ApiClient {
+  /// Just testing out some more enums
+  func anotherEnumTest(input: AnotherEnumTestInput) async throws -> Response<NoData> {
+    return try await self.fetcher.post(
+      to: "/another-enum-test",
+      with: Input(payload: input),
+      returning: NoData.self
+    )
+  }
+}
+
+enum AnotherEnumTestInput: Encodable {
+  case a
+  case b(Int)
 }
             "#
             .trim(),
