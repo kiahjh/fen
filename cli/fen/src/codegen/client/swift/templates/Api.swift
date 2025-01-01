@@ -1,7 +1,10 @@
-// Created by Fen v0.1.0 at 11:19:58 on 2024-12-31
-// Do not manually modify this file as it is automatically generated
-
 import Foundation
+
+let api = ApiClient(fetcher: Fetcher(endpoint: "{{API_ENDPOINT}}"))
+
+struct ApiClient {
+  var fetcher: Fetcher
+}
 
 struct Fetcher {
   var endpoint: String
@@ -23,9 +26,9 @@ struct Fetcher {
     }
   }
 
-  func post<T: Decodable>(
+  func post<T: Decodable, U: Encodable>(
     to path: String,
-    with body: Encodable,
+    with body: Input<U>,
     returning type: T.Type
   ) async throws -> Response<T> {
     let url = URL(string: self.endpoint + path)!
@@ -47,6 +50,12 @@ struct Fetcher {
       return .failure(FailureResponse(message: response.message, status: response.status))
     }
   }
+}
+
+struct NoData: Decodable {}
+
+struct Input<T: Encodable>: Encodable {
+  let payload: T
 }
 
 struct ResponseType: Decodable {

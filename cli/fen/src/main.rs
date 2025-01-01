@@ -8,6 +8,7 @@ mod codegen;
 mod config;
 mod interface;
 mod print;
+mod routes;
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 

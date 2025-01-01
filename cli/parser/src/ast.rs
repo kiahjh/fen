@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Clone)]
 pub struct FileNode {
     // metadata
     pub name: String,
@@ -9,7 +9,7 @@ pub struct FileNode {
 
     // i/o
     pub input: Option<IOType>,
-    pub output: IOType,
+    pub output: Option<IOType>,
 
     // helper types
     pub structs: Vec<StructDefinition>,
@@ -27,7 +27,7 @@ pub enum Primitive {
     Uuid,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Clone)]
 pub enum Type {
     Named(String),
     Optional(Box<Type>),
@@ -35,33 +35,33 @@ pub enum Type {
     Primitive(Primitive),
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Clone)]
 pub struct StructDefinition {
     pub name: String,
     pub fields: Vec<Field>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Clone)]
 pub struct Field {
     pub name: String,
     #[serde(rename = "type")]
     pub t: Type,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Clone)]
 pub struct EnumDefinition {
     pub name: String,
     pub variants: Vec<Variant>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Clone)]
 pub struct Variant {
     pub name: String,
     #[serde(rename = "type")]
     pub t: Option<Type>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Clone)]
 pub enum IOType {
     Type(Type),
     Struct(StructDefinition),

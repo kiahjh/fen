@@ -7,6 +7,7 @@ use crate::{
         verification::{get_config_info, Language},
     },
     print::info,
+    routes::parse,
     VERSION,
 };
 
@@ -20,6 +21,7 @@ pub fn run() -> Result<(), std::io::Error> {
     let config_dir = find_config_dir()?;
     let file_contents = get_config_file_contents(&config_dir)?;
     let config_info = get_config_info(&file_contents)?;
+    let routes = parse(config_dir.to_str().unwrap())?;
 
     info(&format!(
         "Generating client-side code ({})...",
@@ -40,6 +42,7 @@ pub fn run() -> Result<(), std::io::Error> {
                 &output.path,
                 &config_info.client.endpoint_dev,
                 &config_info.client.endpoint_prod,
+                routes.iter().collect(),
             )?;
         } else {
             return Err(std::io::Error::new(

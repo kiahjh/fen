@@ -4,7 +4,8 @@ use ast::{EnumDefinition, Field, FileNode, IOType, Primitive, StructDefinition, 
 use lexer::Lexer;
 use tokens::{Token, TokenKind};
 
-mod ast;
+pub mod ast;
+pub mod codegen;
 mod lexer;
 mod tokens;
 
@@ -61,7 +62,7 @@ impl Parser {
                 description: None,
                 authed: false,
                 input: None,
-                output: IOType::Type(Type::Primitive(Primitive::Int)),
+                output: None,
                 structs: vec![],
                 enums: vec![],
             },
@@ -72,7 +73,7 @@ impl Parser {
     /// # Errors
     ///
     /// Will return `Err` if input is not valid.
-    pub fn parse(&mut self) -> Result<&FileNode, Error> {
+    pub fn parse(&mut self) -> Result<FileNode, Error> {
         // skip to helper types so those are registered first and can be referenced in io types
         let has_helper_types = self.skip_to_helper_types()?;
 
@@ -87,7 +88,7 @@ impl Parser {
         self.parse_metadata()?;
         self.parse_io()?;
 
-        Ok(&self.ast)
+        Ok(self.ast.clone())
     }
 
     fn skip_to_helper_types(&mut self) -> Result<bool, Error> {
@@ -180,20 +181,44 @@ impl Parser {
     }
 
     fn parse_io(&mut self) -> Result<(), Error> {
-        self.expect_token(&TokenKind::At)?;
+        let at_token = self.expect_token(&TokenKind::At);
+        if at_token.is_err() {
+            return Err(Error::Message(
+                "Route must have input, output, or both".to_string(),
+            ));
+        }
 
         let first_ident = self.expect_identifier()?;
-        if first_ident == "input" {
-            self.ast.input = Some(self.parse_io_type("input")?);
-            self.expect_token(&TokenKind::At)?;
-            self.expect_token(&TokenKind::Identifier("output".to_string()))?;
-            self.ast.output = self.parse_io_type("output")?;
-        } else if first_ident == "output" {
-            self.ast.output = self.parse_io_type("output")?;
-        } else {
-            return Err(Error::Message(format!(
-                "Expected 'input' or 'output', got {first_ident}"
-            )));
+        match first_ident.as_str() {
+            "input" => {
+                self.ast.input = Some(self.parse_io_type("input")?);
+                let next_token = self.lexer.peek_tok()?;
+                if next_token.is_none() {
+                    return Ok(());
+                }
+                let next_token = next_token.unwrap();
+                if next_token.kind == TokenKind::At {
+                    self.expect_token(&TokenKind::At)?;
+                    let ident = self.expect_identifier()?;
+                    if ident == "output" {
+                        self.ast.output = Some(self.parse_io_type("output")?);
+                    } else {
+                        return Err(Error::Expected {
+                            expected: "output",
+                            got: TokenKind::Identifier(ident),
+                        });
+                    }
+                }
+            }
+            "output" => {
+                self.ast.output = Some(self.parse_io_type("output")?);
+            }
+            _ => {
+                return Err(Error::Expected {
+                    expected: "input or output",
+                    got: TokenKind::Identifier(first_ident),
+                })
+            }
         }
 
         Ok(())
@@ -467,7 +492,8 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    fn expect_ast(file: &str, expected: &FileNode) {
+    // TODO: figure this out, ideally should take a &FileNode
+    fn expect_ast(file: &str, expected: FileNode) {
         let mut parser = Parser::new(file);
 
         assert_eq!(parser.parse().unwrap(), expected);
@@ -480,6 +506,7 @@ mod tests {
         assert_eq!(err, *expected);
     }
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn parses_metadata_and_io() {
         // basic types:
@@ -495,12 +522,12 @@ mod tests {
 
             @output String
             "#,
-            &FileNode {
+            FileNode {
                 name: "Test".to_string(),
                 description: Some("This is a test".to_string()),
                 authed: true,
                 input: Some(IOType::Type(Type::Primitive(ast::Primitive::Int))),
-                output: IOType::Type(Type::Primitive(ast::Primitive::String)),
+                output: Some(IOType::Type(Type::Primitive(ast::Primitive::String))),
                 structs: vec![],
                 enums: vec![],
             },
@@ -515,14 +542,54 @@ mod tests {
 
             @output [String]?
             "#,
-            &FileNode {
+            FileNode {
                 name: "Test".to_string(),
                 description: None,
                 authed: false,
                 input: None,
-                output: IOType::Type(Type::Optional(Box::new(Type::Array(Box::new(
-                    Type::Primitive(Primitive::String),
+                output: Some(IOType::Type(Type::Optional(Box::new(Type::Array(
+                    Box::new(Type::Primitive(Primitive::String)),
                 ))))),
+                structs: vec![],
+                enums: vec![],
+            },
+        );
+
+        // no input or output is an error:
+        expect_error(
+            r#"
+            name: "Test"
+            description: "This is a test"
+            authed: true
+
+            ---
+            "#,
+            &Error::Message("Route must have input, output, or both".to_string()),
+        );
+
+        // just input no output
+        expect_ast(
+            r#"
+            name: "CompleteTodo"
+
+            ---
+
+            @input {
+              id: UUID
+            }
+            "#,
+            FileNode {
+                name: "CompleteTodo".to_string(),
+                description: None,
+                authed: false,
+                input: Some(IOType::Struct(StructDefinition {
+                    name: "input".to_string(),
+                    fields: vec![Field {
+                        name: "id".to_string(),
+                        t: Type::Primitive(Primitive::Uuid),
+                    }],
+                })),
+                output: None,
                 structs: vec![],
                 enums: vec![],
             },
@@ -545,7 +612,7 @@ mod tests {
               bar(Int)
             )
             "#,
-            &FileNode {
+            FileNode {
                 name: "Test".to_string(),
                 description: None,
                 authed: false,
@@ -562,7 +629,7 @@ mod tests {
                         },
                     ],
                 })),
-                output: IOType::Enum(EnumDefinition {
+                output: Some(IOType::Enum(EnumDefinition {
                     name: "output".to_string(),
                     variants: vec![
                         Variant {
@@ -574,7 +641,7 @@ mod tests {
                             t: Some(Type::Primitive(Primitive::Int)),
                         },
                     ],
-                }),
+                })),
                 structs: vec![],
                 enums: vec![],
             },
@@ -610,7 +677,7 @@ mod tests {
               never
             )
             "#,
-            &FileNode {
+            FileNode {
                 name: "Login".to_string(),
                 description: Some("Login to the system".to_string()),
                 authed: false,
@@ -627,7 +694,7 @@ mod tests {
                         },
                     ],
                 })),
-                output: IOType::Type(Type::Named("Token".to_string())),
+                output: Some(IOType::Type(Type::Named("Token".to_string()))),
                 structs: vec![StructDefinition {
                     name: "Token".to_string(),
                     fields: vec![
@@ -697,7 +764,7 @@ mod tests {
               hybrid
             )
             "#,
-            &FileNode {
+            FileNode {
                 name: "GetPeopleInfo".to_string(),
                 description: Some("Get information about people".to_string()),
                 authed: true,
@@ -708,7 +775,9 @@ mod tests {
                         t: Type::Array(Box::new(Type::Primitive(Primitive::Uuid))),
                     }],
                 })),
-                output: IOType::Type(Type::Array(Box::new(Type::Named("PersonInfo".to_string())))),
+                output: Some(IOType::Type(Type::Array(Box::new(Type::Named(
+                    "PersonInfo".to_string(),
+                ))))),
                 structs: vec![
                     StructDefinition {
                         name: "PersonInfo".to_string(),
