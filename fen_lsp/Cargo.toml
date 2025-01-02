@@ -1,9 +1,9 @@
 [package]
-name = "fen"
+name = "fen_lsp"
 version = "0.1.0"
-description = "The command line interface for Fen"
+description = "LSP for Fen"
 edition = "2021"
-repository = "https://github.com/kiahjh/modeler"
+repository = "https://github.com/kiahjh/fen"
 categories = ["command-line-utilities", "development-tools::ffi"]
 keywords = ["schema", "type-safety", "codegen", "ffi", "http", "api", "multi-language"]
 license = "MIT"
@@ -20,9 +20,5 @@ complexity = "warn"
 cargo = "warn"
 
 [dependencies]
-chrono = "0.4.39"
-colored = "2.2.0"
-serde = "1.0.217"
-serde_json = "1.0.134"
-toml = "0.8.19"
-parser = { path = "../parser" }
+tokio = { version = "1.42.0", features = ["macros", "rt-multi-thread", "io-std"] }
+tower-lsp = "0.20.0"

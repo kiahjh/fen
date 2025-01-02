@@ -1,7 +1,0 @@
-name: "ToggleTodoCompletion"
-description: "Completes or uncompletes a todo"
-authed: true
-
----
-
-@input UUID

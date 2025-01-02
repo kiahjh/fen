@@ -1,7 +1,0 @@
-[client]
-output = [{ language = "swift", path = "Todos/Todos/Lib/Api" }]
-endpoint_dev = "http://localhost:4000"
-endpoint_prod = ""
-
-[server]
-output = { language = "rust", path = "api" }
