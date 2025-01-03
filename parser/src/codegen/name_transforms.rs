@@ -1,3 +1,4 @@
+#[must_use]
 pub fn snake_to_camel(s: &str) -> String {
     let mut result = String::new();
     let mut capitalize = false;
@@ -16,6 +17,7 @@ pub fn snake_to_camel(s: &str) -> String {
     result
 }
 
+#[must_use]
 pub fn snake_to_pascal(s: &str) -> String {
     let mut result = String::new();
     let mut capitalize = true;
@@ -34,6 +36,7 @@ pub fn snake_to_pascal(s: &str) -> String {
     result
 }
 
+#[must_use]
 pub fn pascal_to_camel(s: &str) -> String {
     let mut result = String::new();
 
@@ -48,12 +51,27 @@ pub fn pascal_to_camel(s: &str) -> String {
     result
 }
 
+#[must_use]
 pub fn pascal_to_kebab(s: &str) -> String {
     let mut result = String::new();
 
     for (i, c) in s.chars().enumerate() {
         if i > 0 && c.is_ascii_uppercase() {
             result.push('-');
+        }
+        result.push(c.to_ascii_lowercase());
+    }
+
+    result
+}
+
+#[must_use]
+pub fn pascal_to_snake(s: &str) -> String {
+    let mut result = String::new();
+
+    for (i, c) in s.chars().enumerate() {
+        if i > 0 && c.is_ascii_uppercase() {
+            result.push('_');
         }
         result.push(c.to_ascii_lowercase());
     }
@@ -97,5 +115,14 @@ mod tests {
         assert_eq!(super::pascal_to_kebab("Foo"), "foo");
         assert_eq!(super::pascal_to_kebab("FooBar"), "foo-bar");
         assert_eq!(super::pascal_to_kebab("FooBarBazQux"), "foo-bar-baz-qux");
+    }
+
+    #[test]
+    fn test_pascal_to_snake() {
+        assert_eq!(super::pascal_to_snake("HelloWorld"), "hello_world");
+        assert_eq!(super::pascal_to_snake("FooBarBaz"), "foo_bar_baz");
+        assert_eq!(super::pascal_to_snake("Foo"), "foo");
+        assert_eq!(super::pascal_to_snake("FooBar"), "foo_bar");
+        assert_eq!(super::pascal_to_snake("FooBarBazQux"), "foo_bar_baz_qux");
     }
 }
