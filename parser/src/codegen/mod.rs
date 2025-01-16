@@ -116,7 +116,7 @@ impl GenCode for FileNode {
                     format!("{}({})", self.name.clone() + "Input", pairs.join(", "))
                 }
             };
-            lines.push(format!("      with: Input(payload: {input_payload}),"));
+            lines.push(format!("      with: {input_payload},"));
 
             // add the return type
             lines.push(format!(
@@ -296,7 +296,7 @@ impl GenCode for StructDefinition {
     fn rust_server_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
 
-        lines.push("#[derive(Serialize, Deserialize)]".to_string());
+        lines.push("#[derive(Serialize, Deserialize, Debug, Clone)]".to_string());
         lines.push("#[serde(rename_all = \"camelCase\")]".to_string());
         lines.push(format!(
             "pub struct {} {{",
@@ -348,7 +348,7 @@ impl GenCode for EnumDefinition {
     fn rust_server_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
 
-        lines.push("#[derive(Serialize, Deserialize)]".to_string());
+        lines.push("#[derive(Serialize, Deserialize, Debug, Clone)]".to_string());
         lines.push("#[serde(tag = \"type\", rename_all = \"camelCase\")]".to_string());
         lines.push(format!(
             "pub enum {} {{",
@@ -510,7 +510,7 @@ extension ApiClient {
   func toggleTodoCompletion(input: UUID, sessionToken: String) async throws -> Response<NoData> {
     return try await self.fetcher.post(
       to: "/toggle-todo-completion",
-      with: Input(payload: input),
+      with: input,
       returning: NoData.self,
       sessionToken: sessionToken
     )
@@ -560,7 +560,7 @@ extension ApiClient {
   func test(id: UUID, foo: String, bar: [Date]?) async throws -> Response<TestOutput> {
     return try await self.fetcher.post(
       to: "/test",
-      with: Input(payload: TestInput(id: id, foo: foo, bar: bar)),
+      with: TestInput(id: id, foo: foo, bar: bar),
       returning: TestOutput.self
     )
   }
@@ -614,7 +614,7 @@ extension ApiClient {
   func test(id: UUID, foo: String, bar: [Date]?, sessionToken: String) async throws -> Response<NoData> {
     return try await self.fetcher.post(
       to: "/test",
-      with: Input(payload: TestInput(id: id, foo: foo, bar: bar)),
+      with: TestInput(id: id, foo: foo, bar: bar),
       returning: NoData.self,
       sessionToken: sessionToken
     )
@@ -654,7 +654,7 @@ extension ApiClient {
   func yetAnotherTest(id: UUID, foo: String) async throws -> Response<[UUID]> {
     return try await self.fetcher.post(
       to: "/yet-another-test",
-      with: Input(payload: YetAnotherTestInput(id: id, foo: foo)),
+      with: YetAnotherTestInput(id: id, foo: foo),
       returning: [UUID].self
     )
   }
@@ -774,7 +774,7 @@ extension ApiClient {
   func anotherEnumTest(input: AnotherEnumTestInput) async throws -> Response<NoData> {
     return try await self.fetcher.post(
       to: "/another-enum-test",
-      with: Input(payload: input),
+      with: input,
       returning: NoData.self
     )
   }
@@ -835,7 +835,7 @@ use uuid::Uuid;
 
 pub type Output = Vec<Todo>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Todo {
     pub id: Uuid,
@@ -908,7 +908,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -916,20 +916,20 @@ pub struct Input {
     pub bar: Option<Vec<DateTime<Utc>>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Output {
     pub stuff: Vec<Thing>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Thing {
     pub type: ThingType,
     pub happy: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ThingType {
     A,
@@ -962,7 +962,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -994,7 +994,7 @@ name: "YetAnotherTest"
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -1060,14 +1060,14 @@ Job (
             r#"
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Output {
     Single,
     Married(Spouse),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Spouse {
     pub name: String,
@@ -1076,7 +1076,7 @@ pub struct Spouse {
     pub ocupation: Job,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Job {
     Developer,
@@ -1106,7 +1106,7 @@ description: "Just testing out some more enums"
             r#"
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Input {
     A,

@@ -36,7 +36,7 @@ struct Fetcher {
 
   func post<T: Decodable, U: Encodable>(
     to path: String,
-    with body: Input<U>,
+    with body: U,
     returning type: T.Type,
     sessionToken: String? = nil
   ) async throws -> Response<T> {
@@ -65,10 +65,6 @@ struct Fetcher {
 }
 
 struct NoData: Decodable {}
-
-struct Input<T: Encodable>: Encodable {
-  let payload: T
-}
 
 struct ResponseType: Decodable {
   var type: String
