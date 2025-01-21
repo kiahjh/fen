@@ -130,7 +130,7 @@ dependencies = [
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "colored",
@@ -599,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "parser"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "pretty_assertions",
  "serde",

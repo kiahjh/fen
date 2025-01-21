@@ -39,6 +39,7 @@ pub enum Type {
 pub struct StructDefinition {
     pub name: String,
     pub fields: Vec<Field>,
+    pub annotations: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Clone)]
@@ -52,6 +53,7 @@ pub struct Field {
 pub struct EnumDefinition {
     pub name: String,
     pub variants: Vec<Variant>,
+    pub annotations: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Clone)]

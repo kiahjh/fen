@@ -30,3 +30,7 @@ pub struct FailureResponse {
     pub message: String,
     pub status: isize,
 }
+
+pub fn fen_path(path: &str) -> String {
+    format!("/_fen_{path}")
+}

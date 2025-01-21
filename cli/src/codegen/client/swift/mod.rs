@@ -21,7 +21,6 @@ pub fn gen_swift_client(
             &format!("{}.swift", route.name),
             &route.swift_client_code(&Context {
                 override_name: None,
-                codeability: None,
             }),
         )?;
     }

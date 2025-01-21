@@ -112,6 +112,10 @@ impl Parser {
         // first look through and register all the types
         while let Some(tok) = self.lexer.next_tok()? {
             match tok.kind {
+                TokenKind::At => {
+                    self.expect_identifier()?;
+                    continue;
+                }
                 TokenKind::Identifier(name) => self.defined_types.push(name),
                 _ => {
                     return Err(Error::Expected {
@@ -151,15 +155,23 @@ impl Parser {
         // then go back and parse them
         self.lexer.reset();
         self.skip_to_helper_types()?;
+        let annotations = &mut vec![];
         while let Some(tok) = self.lexer.next_tok()? {
             match tok.kind {
+                TokenKind::At => {
+                    let annotation = self.expect_identifier()?;
+                    annotations.push(annotation);
+                }
                 TokenKind::Identifier(name) => {
                     let next_token = self.lexer.peek_tok()?.ok_or(Error::UnexpectedEOF)?;
                     if next_token.kind == TokenKind::LeftBrace {
-                        let struct_def = self.parse_struct_definition(&name)?;
+                        let struct_def =
+                            self.parse_struct_definition(&name, annotations.clone())?;
+                        annotations.clear();
                         self.ast.structs.push(struct_def);
                     } else if next_token.kind == TokenKind::LeftParen {
-                        let enum_def = self.parse_enum_definition(&name)?;
+                        let enum_def = self.parse_enum_definition(&name, annotations.clone())?;
+                        annotations.clear();
                         self.ast.enums.push(enum_def);
                     } else {
                         return Err(Error::Expected {
@@ -273,8 +285,8 @@ impl Parser {
     fn parse_io_type(&mut self, name: &str) -> Result<IOType, Error> {
         let next_tok = self.lexer.peek_tok()?.ok_or(Error::UnexpectedEOF)?;
         match next_tok.kind {
-            TokenKind::LeftBrace => Ok(IOType::Struct(self.parse_struct_definition(name)?)),
-            TokenKind::LeftParen => Ok(IOType::Enum(self.parse_enum_definition(name)?)),
+            TokenKind::LeftBrace => Ok(IOType::Struct(self.parse_struct_definition(name, vec![])?)),
+            TokenKind::LeftParen => Ok(IOType::Enum(self.parse_enum_definition(name, vec![])?)),
             TokenKind::LeftBracket
             | TokenKind::Identifier(_)
             | TokenKind::Int
@@ -290,12 +302,17 @@ impl Parser {
         }
     }
 
-    fn parse_struct_definition(&mut self, name: &str) -> Result<StructDefinition, Error> {
+    fn parse_struct_definition(
+        &mut self,
+        name: &str,
+        annotations: Vec<String>,
+    ) -> Result<StructDefinition, Error> {
         self.expect_token(&TokenKind::LeftBrace)?;
 
         let mut struct_def = StructDefinition {
             name: name.to_string(),
             fields: vec![],
+            annotations,
         };
 
         while let Some(tok) = self.lexer.peek_tok()? {
@@ -323,12 +340,17 @@ impl Parser {
         Ok(Field { name, t })
     }
 
-    fn parse_enum_definition(&mut self, name: &str) -> Result<EnumDefinition, Error> {
+    fn parse_enum_definition(
+        &mut self,
+        name: &str,
+        annotations: Vec<String>,
+    ) -> Result<EnumDefinition, Error> {
         self.expect_token(&TokenKind::LeftParen)?;
 
         let mut enum_def = EnumDefinition {
             name: name.to_string(),
             variants: vec![],
+            annotations,
         };
 
         while let Some(tok) = self.lexer.peek_tok()? {
@@ -493,6 +515,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     // TODO: figure this out, ideally should take a &FileNode
+    #[allow(clippy::needless_pass_by_value)]
     fn expect_ast(file: &str, expected: FileNode) {
         let mut parser = Parser::new(file);
 
@@ -588,6 +611,7 @@ mod tests {
                         name: "id".to_string(),
                         t: Type::Primitive(Primitive::Uuid),
                     }],
+                    annotations: vec![],
                 })),
                 output: None,
                 structs: vec![],
@@ -628,6 +652,7 @@ mod tests {
                             t: Type::Primitive(Primitive::String),
                         },
                     ],
+                    annotations: vec![],
                 })),
                 output: Some(IOType::Enum(EnumDefinition {
                     name: "output".to_string(),
@@ -641,6 +666,7 @@ mod tests {
                             t: Some(Type::Primitive(Primitive::Int)),
                         },
                     ],
+                    annotations: vec![],
                 })),
                 structs: vec![],
                 enums: vec![],
@@ -693,6 +719,7 @@ mod tests {
                             t: Type::Primitive(Primitive::String),
                         },
                     ],
+                    annotations: vec![],
                 })),
                 output: Some(IOType::Type(Type::Named("Token".to_string()))),
                 structs: vec![StructDefinition {
@@ -707,6 +734,7 @@ mod tests {
                             t: Type::Named("Expiration".to_string()),
                         },
                     ],
+                    annotations: vec![],
                 }],
                 enums: vec![EnumDefinition {
                     name: "Expiration".to_string(),
@@ -720,6 +748,7 @@ mod tests {
                             t: None,
                         },
                     ],
+                    annotations: vec![],
                 }],
             },
         );
@@ -744,6 +773,7 @@ mod tests {
 
             ---
 
+            @someAnnotation
             PersonInfo {
               id: UUID
               born: Date
@@ -758,6 +788,8 @@ mod tests {
               place: WorkPlace
             }
 
+            @anotherAnnotation
+            @andAnother
             WorkPlace (
               at_home
               on_site
@@ -774,6 +806,7 @@ mod tests {
                         name: "ids".to_string(),
                         t: Type::Array(Box::new(Type::Primitive(Primitive::Uuid))),
                     }],
+                    annotations: vec![],
                 })),
                 output: Some(IOType::Type(Type::Array(Box::new(Type::Named(
                     "PersonInfo".to_string(),
@@ -803,6 +836,7 @@ mod tests {
                                 t: Type::Named("Work".to_string()),
                             },
                         ],
+                        annotations: vec!["someAnnotation".to_string()],
                     },
                     StructDefinition {
                         name: "Work".to_string(),
@@ -820,6 +854,7 @@ mod tests {
                                 t: Type::Named("WorkPlace".to_string()),
                             },
                         ],
+                        annotations: vec![],
                     },
                 ],
                 enums: vec![EnumDefinition {
@@ -838,6 +873,7 @@ mod tests {
                             t: None,
                         },
                     ],
+                    annotations: vec!["anotherAnnotation".to_string(), "andAnother".to_string()],
                 }],
             },
         );
