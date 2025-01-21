@@ -70,12 +70,12 @@ struct ResponseType: Decodable {
   var type: String
 }
 
-enum Response<T: Decodable> {
+enum Response<T: Decodable & Sendable>: Sendable {
   case success(SuccessResponse<T>)
   case failure(FailureResponse)
 }
 
-struct SuccessResponse<T: Decodable>: Decodable {
+struct SuccessResponse<T: Decodable & Sendable>: Decodable, Sendable {
   let data: T
 }
 

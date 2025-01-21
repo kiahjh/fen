@@ -26,7 +26,6 @@ pub fn gen_rust_server(
             &format!("{}.rs", pascal_to_snake(&route.name)),
             &route.rust_server_code(&Context {
                 override_name: None,
-                codeability: None,
             }),
         )?;
     }

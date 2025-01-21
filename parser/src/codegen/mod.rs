@@ -1,18 +1,14 @@
 use crate::ast::{
     EnumDefinition, Field, FileNode, IOType, Primitive, StructDefinition, Type, Variant,
 };
-use name_transforms::{pascal_to_camel, pascal_to_kebab, snake_to_camel, snake_to_pascal};
+use name_transforms::{
+    pascal_to_camel, pascal_to_kebab, pascal_to_snake, snake_to_camel, snake_to_pascal,
+};
 
 pub mod name_transforms;
 
-pub enum Codeability {
-    Encodable,
-    Decodable,
-}
-
 pub struct Context {
     pub override_name: Option<String>,
-    pub codeability: Option<Codeability>,
 }
 
 pub trait GenCode {
@@ -89,7 +85,7 @@ impl GenCode for FileNode {
                 "post(".to_string()
             } else {
                 format!(
-                    "get(from: \"/{}\"{})",
+                    "get(from: \"/_fen_/{}\"{})",
                     pascal_to_kebab(&self.name),
                     if self.authed {
                         ", sessionToken: sessionToken"
@@ -103,7 +99,10 @@ impl GenCode for FileNode {
         // return statement body (for post requests)
         if self.input.is_some() {
             // add the path
-            lines.push(format!("      to: \"/{}\",", pascal_to_kebab(&self.name)));
+            lines.push(format!(
+                "      to: \"/_fen_/{}\",",
+                pascal_to_kebab(&self.name)
+            ));
 
             // add the input
             let input_payload = match &self.input.as_ref().unwrap() {
@@ -141,13 +140,11 @@ impl GenCode for FileNode {
             lines.push(String::new());
             lines.push(s.swift_client_code(&Context {
                 override_name: Some(self.name.clone() + "Input"),
-                codeability: Some(Codeability::Encodable),
             }));
         } else if let Some(IOType::Enum(e)) = &self.input {
             lines.push(String::new());
             lines.push(e.swift_client_code(&Context {
                 override_name: Some(self.name.clone() + "Input"),
-                codeability: Some(Codeability::Encodable),
             }));
         }
 
@@ -156,13 +153,11 @@ impl GenCode for FileNode {
             lines.push(String::new());
             lines.push(s.swift_client_code(&Context {
                 override_name: Some(self.name.clone() + "Output"),
-                codeability: Some(Codeability::Decodable),
             }));
         } else if let Some(IOType::Enum(e)) = &self.output {
             lines.push(String::new());
             lines.push(e.swift_client_code(&Context {
                 override_name: Some(self.name.clone() + "Output"),
-                codeability: Some(Codeability::Decodable),
             }));
         }
 
@@ -171,7 +166,6 @@ impl GenCode for FileNode {
             lines.push(String::new());
             lines.push(struct_def.swift_client_code(&Context {
                 override_name: None,
-                codeability: Some(Codeability::Decodable),
             }));
         }
 
@@ -180,7 +174,6 @@ impl GenCode for FileNode {
             lines.push(String::new());
             lines.push(enum_def.swift_client_code(&Context {
                 override_name: None,
-                codeability: Some(Codeability::Decodable),
             }));
         }
 
@@ -206,11 +199,9 @@ impl GenCode for FileNode {
                 )),
                 IOType::Struct(s) => lines.push(s.rust_server_code(&Context {
                     override_name: Some("Input".to_string()),
-                    codeability: None,
                 })),
                 IOType::Enum(e) => lines.push(e.rust_server_code(&Context {
                     override_name: Some("Input".to_string()),
-                    codeability: None,
                 })),
             }
         }
@@ -229,11 +220,9 @@ impl GenCode for FileNode {
                 )),
                 IOType::Struct(s) => lines.push(s.rust_server_code(&Context {
                     override_name: Some("Output".to_string()),
-                    codeability: None,
                 })),
                 IOType::Enum(e) => lines.push(e.rust_server_code(&Context {
                     override_name: Some("Output".to_string()),
-                    codeability: None,
                 })),
             }
         }
@@ -279,12 +268,13 @@ impl GenCode for StructDefinition {
     fn swift_client_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
         lines.push(format!(
-            "struct {}{} {{",
+            "struct {}: Codable{} {{",
             ctx.override_name.as_ref().map_or(&self.name, |n| n),
-            ctx.codeability.as_ref().map_or("", |c| match c {
-                Codeability::Encodable => ": Encodable",
-                Codeability::Decodable => ": Decodable",
-            })
+            if self.fields.iter().any(|f| f.name == "id") {
+                ", Identifiable"
+            } else {
+                ""
+            }
         ));
         for field in &self.fields {
             lines.push(field.swift_client_code(ctx));
@@ -330,12 +320,8 @@ impl GenCode for EnumDefinition {
         let mut lines = vec![];
 
         lines.push(format!(
-            "enum {}{} {{",
+            "enum {}: Codable {{",
             ctx.override_name.as_ref().map_or(&self.name, |n| n),
-            ctx.codeability.as_ref().map_or("", |c| match c {
-                Codeability::Encodable => ": Encodable",
-                Codeability::Decodable => ": Decodable",
-            })
         ));
         for variant in &self.variants {
             lines.push(variant.swift_client_code(ctx));
@@ -348,8 +334,21 @@ impl GenCode for EnumDefinition {
     fn rust_server_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
 
-        lines.push("#[derive(Serialize, Deserialize, Debug, Clone)]".to_string());
+        lines.push(format!(
+            "#[derive(Serialize, Deserialize, Debug, Clone{})]",
+            if self.annotations.is_empty() {
+                ""
+            } else {
+                ", sqlx::Type"
+            }
+        ));
         lines.push("#[serde(tag = \"type\", rename_all = \"camelCase\")]".to_string());
+        if self.annotations.contains(&"sqlxType".to_string()) {
+            lines.push(format!(
+                "#[sqlx(type_name = \"{}\", rename_all = \"SCREAMING_SNAKE_CASE\")]",
+                pascal_to_snake(&self.name)
+            ));
+        }
         lines.push(format!(
             "pub enum {} {{",
             ctx.override_name.as_ref().map_or(&self.name, |n| n)
@@ -439,7 +438,6 @@ mod swift_client_tests {
         let ast = parser.parse().unwrap();
         let swift = ast.swift_client_code(&Context {
             override_name: None,
-            codeability: None,
         });
         assert_eq!(swift, swift_code);
     }
@@ -473,11 +471,11 @@ import Foundation
 extension ApiClient {
   /// Fetches all todos
   func getTodos(sessionToken: String) async throws -> Response<[Todo]> {
-    return try await self.fetcher.get(from: "/get-todos", sessionToken: sessionToken)
+    return try await self.fetcher.get(from: "/_fen_/get-todos", sessionToken: sessionToken)
   }
 }
 
-struct Todo: Decodable {
+struct Todo: Codable, Identifiable {
   var id: UUID
   var name: String
   var description: String?
@@ -509,7 +507,7 @@ extension ApiClient {
   /// Completes or uncompletes a todo
   func toggleTodoCompletion(input: UUID, sessionToken: String) async throws -> Response<NoData> {
     return try await self.fetcher.post(
-      to: "/toggle-todo-completion",
+      to: "/_fen_/toggle-todo-completion",
       with: input,
       returning: NoData.self,
       sessionToken: sessionToken
@@ -559,29 +557,29 @@ import Foundation
 extension ApiClient {
   func test(id: UUID, foo: String, bar: [Date]?) async throws -> Response<TestOutput> {
     return try await self.fetcher.post(
-      to: "/test",
+      to: "/_fen_/test",
       with: TestInput(id: id, foo: foo, bar: bar),
       returning: TestOutput.self
     )
   }
 }
 
-struct TestInput: Encodable {
+struct TestInput: Codable, Identifiable {
   var id: UUID
   var foo: String
   var bar: [Date]?
 }
 
-struct TestOutput: Decodable {
+struct TestOutput: Codable {
   var stuff: [Thing]
 }
 
-struct Thing: Decodable {
+struct Thing: Codable {
   var type: ThingType
   var happy: Bool
 }
 
-enum ThingType: Decodable {
+enum ThingType: Codable {
   case a
   case b
   case c
@@ -613,7 +611,7 @@ import Foundation
 extension ApiClient {
   func test(id: UUID, foo: String, bar: [Date]?, sessionToken: String) async throws -> Response<NoData> {
     return try await self.fetcher.post(
-      to: "/test",
+      to: "/_fen_/test",
       with: TestInput(id: id, foo: foo, bar: bar),
       returning: NoData.self,
       sessionToken: sessionToken
@@ -621,7 +619,7 @@ extension ApiClient {
   }
 }
 
-struct TestInput: Encodable {
+struct TestInput: Codable, Identifiable {
   var id: UUID
   var foo: String
   var bar: [Date]?
@@ -653,14 +651,14 @@ import Foundation
 extension ApiClient {
   func yetAnotherTest(id: UUID, foo: String) async throws -> Response<[UUID]> {
     return try await self.fetcher.post(
-      to: "/yet-another-test",
+      to: "/_fen_/yet-another-test",
       with: YetAnotherTestInput(id: id, foo: foo),
       returning: [UUID].self
     )
   }
 }
 
-struct YetAnotherTestInput: Encodable {
+struct YetAnotherTestInput: Codable, Identifiable {
   var id: UUID
   var foo: String
 }
@@ -684,7 +682,7 @@ authed: true
             r#"
 extension ApiClient {
   func test(sessionToken: String) async throws -> Response<Int> {
-    return try await self.fetcher.get(from: "/test", sessionToken: sessionToken)
+    return try await self.fetcher.get(from: "/_fen_/test", sessionToken: sessionToken)
   }
 }
             "#
@@ -727,23 +725,23 @@ Job (
 extension ApiClient {
   /// Just testing out enums
   func enumTest(sessionToken: String) async throws -> Response<EnumTestOutput> {
-    return try await self.fetcher.get(from: "/enum-test", sessionToken: sessionToken)
+    return try await self.fetcher.get(from: "/_fen_/enum-test", sessionToken: sessionToken)
   }
 }
 
-enum EnumTestOutput: Decodable {
+enum EnumTestOutput: Codable {
   case single
   case married(Spouse)
 }
 
-struct Spouse: Decodable {
+struct Spouse: Codable {
   var name: String
   var age: Int
   var hasBeard: Bool
   var ocupation: Job
 }
 
-enum Job: Decodable {
+enum Job: Codable {
   case developer
   case construction
   case other(String?)
@@ -773,14 +771,14 @@ extension ApiClient {
   /// Just testing out some more enums
   func anotherEnumTest(input: AnotherEnumTestInput) async throws -> Response<NoData> {
     return try await self.fetcher.post(
-      to: "/another-enum-test",
+      to: "/_fen_/another-enum-test",
       with: input,
       returning: NoData.self
     )
   }
 }
 
-enum AnotherEnumTestInput: Encodable {
+enum AnotherEnumTestInput: Codable {
   case a
   case b(Int)
 }
@@ -800,7 +798,6 @@ mod rust_server_tests {
         let ast = parser.parse().unwrap();
         let rust = ast.rust_server_code(&Context {
             override_name: None,
-            codeability: None,
         });
         assert_eq!(rust, rust_code);
     }
@@ -1113,6 +1110,65 @@ pub enum Input {
     B(isize),
 }
             "#
+            .trim(),
+        );
+    }
+
+    #[test]
+    fn sqlx_types() {
+        expect_rust(
+            r#"
+name: "GetRepertoire"
+description: "Get a user's repertoire"
+authed: true
+
+---
+
+@output [Song]
+
+---
+
+Song {
+  id: UUID
+  title: String
+  familiarity: FamiliarityLevel
+}
+
+@sqlxType
+FamiliarityLevel (
+  todo
+  learning
+  playable
+  good
+  mastered
+)
+                "#
+            .trim(),
+            r#"
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+pub type Output = Vec<Song>;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Song {
+    pub id: Uuid,
+    pub title: String,
+    pub familiarity: FamiliarityLevel,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type)]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[sqlx(type_name = "familiarity_level", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FamiliarityLevel {
+    Todo,
+    Learning,
+    Playable,
+    Good,
+    Mastered,
+}
+                "#
             .trim(),
         );
     }
