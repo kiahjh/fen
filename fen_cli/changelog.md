@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.3.0]
+- fen: support for comments with `//`
+
 ## [0.2.0]
 - all: appended `_fen_/` to all paths
 - all: groundwork laid for annotation support

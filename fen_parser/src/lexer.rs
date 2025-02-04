@@ -45,6 +45,35 @@ impl Lexer {
         self.peek_token = None;
     }
 
+    fn skip_whitespace(&mut self) {
+        while self.peek_char().map_or(false, u8::is_ascii_whitespace) {
+            self.pos += 1;
+        }
+    }
+
+    fn skip_extras(&mut self) -> Result<(), Error> {
+        self.skip_whitespace();
+
+        // skip over comments
+        if self.peek_char().map_or(false, |c| c == &b'/') {
+            self.next_char();
+            if self.peek_char().map_or(false, |c| c == &b'/') {
+                while self.peek_char().map_or(false, |c| c != &b'\n') {
+                    self.pos += 1;
+                }
+                self.skip_whitespace();
+                // recurse to skip any other comments:
+                if self.peek_char().map_or(false, |c| c == &b'/') {
+                    return self.skip_extras();
+                }
+            } else {
+                return Err(Error::new("Expected '/'", self.pos - 1));
+            }
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn peek_tok(&mut self) -> Result<Option<&Token>, Error> {
         if self.peek_token.is_none() {
             self.peek_token = self.next_tok()?;
@@ -57,10 +86,7 @@ impl Lexer {
             return Ok(Some(peeked));
         }
 
-        // skip over whitespace
-        while self.peek_char().map_or(false, u8::is_ascii_whitespace) {
-            self.pos += 1;
-        }
+        self.skip_extras()?;
 
         let mut return_val: Result<Option<Token>, Error> = Ok(None);
 
@@ -282,31 +308,56 @@ mod tests {
     }
 
     #[test]
+    fn comments() {
+        expect_tokens(
+            r#"
+            // this is a comment
+            foo
+            // another comment
+            "bar"
+            "#,
+            &[
+                TokenKind::Identifier("foo".to_string()),
+                TokenKind::StringLiteral("bar".to_string()),
+            ],
+        );
+    }
+
+    #[test]
     fn all_syntax() {
         expect_tokens(
             r#"
+            // comment
             name: "GetTodos"
             description: "Get all todos for a user"
-            authed: true
+            authed: true // here's another comment
 
             ---
 
+            // this is the input (nice no?)
             @input { user_id: String }
 
             @output [Todo]
 
             ---
 
+            @someAnnotation
             Todo {
               name: String
               due: Date?
+              // refers to custom enum
               priority: Priority?
               subtasks: [Todo]
             }
 
+            // we add this because this is actually
+            // a postgres enum
+            // these comments can be many lines long btw
+            // just double checking that it works
+            @sqlxType
             Priority (
               low
-              medium
+              medium // for the bourgeois case
               high
               other(String)
             )
@@ -335,6 +386,8 @@ mod tests {
                 TokenKind::Identifier("Todo".to_string()),
                 TokenKind::RightBracket,
                 TokenKind::Rule,
+                TokenKind::At,
+                TokenKind::Identifier("someAnnotation".to_string()),
                 TokenKind::Identifier("Todo".to_string()),
                 TokenKind::LeftBrace,
                 TokenKind::Identifier("name".to_string()),
@@ -354,6 +407,8 @@ mod tests {
                 TokenKind::Identifier("Todo".to_string()),
                 TokenKind::RightBracket,
                 TokenKind::RightBrace,
+                TokenKind::At,
+                TokenKind::Identifier("sqlxType".to_string()),
                 TokenKind::Identifier("Priority".to_string()),
                 TokenKind::LeftParen,
                 TokenKind::Identifier("low".to_string()),

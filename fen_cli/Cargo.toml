@@ -1,6 +1,6 @@
 [package]
 name = "fen_cli"
-version = "0.2.1"
+version = "0.3.0"
 description = "The command line interface for Fen"
 edition = "2021"
 repository = "https://github.com/kiahjh/fen"
@@ -29,4 +29,4 @@ colored = "2.2.0"
 serde = "1.0.217"
 serde_json = "1.0.134"
 toml = "0.8.19"
-fen_parser = { path = "../fen_parser", version = "0.2.0" }
+fen_parser = { path = "../fen_parser", version = "0.3.0" }

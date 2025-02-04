@@ -5,3 +5,7 @@ members = [
   "fen_parser",
   "fen_lsp"
 ]
+exclude = [
+  "tree-sitter-fen",
+  "documentation"
+]
