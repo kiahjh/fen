@@ -1,11 +1,11 @@
 [package]
-name = "cli"
+name = "fen_parser"
 version = "0.2.0"
-description = "The command line interface for Fen"
+description = "A parser for Fen"
 edition = "2021"
 repository = "https://github.com/kiahjh/fen"
-categories = ["command-line-utilities", "development-tools::ffi"]
-keywords = ["schema", "type-safety", "codegen", "ffi", "http", "api", "multi-language"]
+categories = ["parser-implementations", "development-tools::ffi"]
+keywords = ["schema", "type-safety", "codegen", "ffi"]
 license = "MIT"
 readme = "README.md"
 
@@ -20,9 +20,6 @@ complexity = "warn"
 cargo = "warn"
 
 [dependencies]
-chrono = "0.4.39"
-colored = "2.2.0"
-serde = "1.0.217"
+pretty_assertions = "1.4.1"
+serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
-toml = "0.8.19"
-parser = { path = "../parser" }

@@ -1,9 +1,9 @@
 use crate::codegen::write_to_file;
-use parser::codegen::{name_transforms::pascal_to_snake, Context, GenCode};
+use fen_parser::codegen::{name_transforms::pascal_to_snake, Context, GenCode};
 
 pub fn gen_rust_server(
     path: &str,
-    routes: Vec<&parser::ast::FileNode>,
+    routes: Vec<&fen_parser::ast::FileNode>,
 ) -> Result<(), std::io::Error> {
     let response_types_text = include_str!("templates/response.rs");
 

@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use parser::Parser;
+use fen_parser::Parser;
 
-pub fn parse(path: &str) -> Result<Vec<parser::ast::FileNode>, std::io::Error> {
+pub fn parse(path: &str) -> Result<Vec<fen_parser::ast::FileNode>, std::io::Error> {
     // get all files in `path` that end with .fen
     let file_names = std::fs::read_dir(path)?
         .filter_map(|entry| {

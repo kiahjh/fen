@@ -129,18 +129,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cli"
-version = "0.2.0"
-dependencies = [
- "chrono",
- "colored",
- "parser",
- "serde",
- "serde_json",
- "toml",
-]
-
-[[package]]
 name = "colored"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -193,11 +181,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
+name = "fen_cli"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "colored",
+ "fen_parser",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "fen_lsp"
 version = "0.1.0"
 dependencies = [
  "tokio",
  "tower-lsp",
+]
+
+[[package]]
+name = "fen_parser"
+version = "0.2.0"
+dependencies = [
+ "pretty_assertions",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -595,15 +604,6 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets",
-]
-
-[[package]]
-name = "parser"
-version = "0.2.0"
-dependencies = [
- "pretty_assertions",
- "serde",
- "serde_json",
 ]
 
 [[package]]

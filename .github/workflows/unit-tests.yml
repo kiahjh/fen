@@ -17,6 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      run: cd cli && cargo build --verbose
+      run: cd fen_cli && cargo build --verbose
     - name: Run tests
-      run: cd cli && cargo test --verbose
+      run: cd fen_cli && cargo test --verbose

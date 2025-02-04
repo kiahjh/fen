@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-  "cli",
-  "parser",
+  "fen_cli",
+  "fen_parser",
   "fen_lsp"
 ]
