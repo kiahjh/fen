@@ -268,7 +268,7 @@ impl GenCode for StructDefinition {
     fn swift_client_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
         lines.push(format!(
-            "struct {}: Codable{} {{",
+            "struct {}: Codable, Equatable{} {{",
             ctx.override_name.as_ref().map_or(&self.name, |n| n),
             if self.fields.iter().any(|f| f.name == "id") {
                 ", Identifiable"
@@ -320,7 +320,7 @@ impl GenCode for EnumDefinition {
         let mut lines = vec![];
 
         lines.push(format!(
-            "enum {}: Codable {{",
+            "enum {}: Codable, Equatable {{",
             ctx.override_name.as_ref().map_or(&self.name, |n| n),
         ));
         for variant in &self.variants {
@@ -475,7 +475,7 @@ extension ApiClient {
   }
 }
 
-struct Todo: Codable, Identifiable {
+struct Todo: Codable, Equatable, Identifiable {
   var id: UUID
   var name: String
   var description: String?
@@ -564,22 +564,22 @@ extension ApiClient {
   }
 }
 
-struct TestInput: Codable, Identifiable {
+struct TestInput: Codable, Equatable, Identifiable {
   var id: UUID
   var foo: String
   var bar: [Date]?
 }
 
-struct TestOutput: Codable {
+struct TestOutput: Codable, Equatable {
   var stuff: [Thing]
 }
 
-struct Thing: Codable {
+struct Thing: Codable, Equatable {
   var type: ThingType
   var happy: Bool
 }
 
-enum ThingType: Codable {
+enum ThingType: Codable, Equatable {
   case a
   case b
   case c
@@ -619,7 +619,7 @@ extension ApiClient {
   }
 }
 
-struct TestInput: Codable, Identifiable {
+struct TestInput: Codable, Equatable, Identifiable {
   var id: UUID
   var foo: String
   var bar: [Date]?
@@ -658,7 +658,7 @@ extension ApiClient {
   }
 }
 
-struct YetAnotherTestInput: Codable, Identifiable {
+struct YetAnotherTestInput: Codable, Equatable, Identifiable {
   var id: UUID
   var foo: String
 }
@@ -729,19 +729,19 @@ extension ApiClient {
   }
 }
 
-enum EnumTestOutput: Codable {
+enum EnumTestOutput: Codable, Equatable {
   case single
   case married(Spouse)
 }
 
-struct Spouse: Codable {
+struct Spouse: Codable, Equatable {
   var name: String
   var age: Int
   var hasBeard: Bool
   var ocupation: Job
 }
 
-enum Job: Codable {
+enum Job: Codable, Equatable {
   case developer
   case construction
   case other(String?)
@@ -778,7 +778,7 @@ extension ApiClient {
   }
 }
 
-enum AnotherEnumTestInput: Codable {
+enum AnotherEnumTestInput: Codable, Equatable {
   case a
   case b(Int)
 }

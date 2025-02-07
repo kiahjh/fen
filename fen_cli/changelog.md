@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.3.1]
+- swift: make generated structs and enums `Equatable`
+
 ## [0.3.0]
 - fen: support for comments with `//`
 
