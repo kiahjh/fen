@@ -34,7 +34,7 @@ impl GenCode for FileNode {
         );
 
         // open the extension
-        let mut lines = vec!["extension ApiClient {".to_string()];
+        let mut lines = vec!["extension APIClient {".to_string()];
 
         // add documentation
         if let Some(description) = &self.description {
@@ -90,7 +90,7 @@ impl GenCode for FileNode {
                     if self.authed {
                         ", sessionToken: sessionToken"
                     } else {
-                        ""
+                        ", sessionToken: nil"
                     }
                 )
             }
@@ -118,15 +118,13 @@ impl GenCode for FileNode {
             lines.push(format!("      with: {input_payload},"));
 
             // add the return type
-            lines.push(format!(
-                "      returning: {}.self{}",
-                return_type_name,
-                if self.authed { "," } else { "" }
-            ));
+            lines.push(format!("      returning: {return_type_name}.self,"));
 
             // add the session token
             if self.authed {
                 lines.push("      sessionToken: sessionToken".to_string());
+            } else {
+                lines.push("      sessionToken: nil".to_string());
             }
 
             lines.push("    )".to_string());
@@ -468,7 +466,7 @@ Todo {
             r#"
 import Foundation
 
-extension ApiClient {
+extension APIClient {
   /// Fetches all todos
   func getTodos(sessionToken: String) async throws -> Response<[Todo]> {
     return try await self.fetcher.get(from: "/_fen_/get-todos", sessionToken: sessionToken)
@@ -503,7 +501,7 @@ authed: true
             r#"
 import Foundation
 
-extension ApiClient {
+extension APIClient {
   /// Completes or uncompletes a todo
   func toggleTodoCompletion(input: UUID, sessionToken: String) async throws -> Response<NoData> {
     return try await self.fetcher.post(
@@ -554,12 +552,13 @@ ThingType (
             r#"
 import Foundation
 
-extension ApiClient {
+extension APIClient {
   func test(id: UUID, foo: String, bar: [Date]?) async throws -> Response<TestOutput> {
     return try await self.fetcher.post(
       to: "/_fen_/test",
       with: TestInput(id: id, foo: foo, bar: bar),
-      returning: TestOutput.self
+      returning: TestOutput.self,
+      sessionToken: nil
     )
   }
 }
@@ -608,7 +607,7 @@ authed: true
             r#"
 import Foundation
 
-extension ApiClient {
+extension APIClient {
   func test(id: UUID, foo: String, bar: [Date]?, sessionToken: String) async throws -> Response<NoData> {
     return try await self.fetcher.post(
       to: "/_fen_/test",
@@ -648,12 +647,13 @@ name: "YetAnotherTest"
             r#"
 import Foundation
 
-extension ApiClient {
+extension APIClient {
   func yetAnotherTest(id: UUID, foo: String) async throws -> Response<[UUID]> {
     return try await self.fetcher.post(
       to: "/_fen_/yet-another-test",
       with: YetAnotherTestInput(id: id, foo: foo),
-      returning: [UUID].self
+      returning: [UUID].self,
+      sessionToken: nil
     )
   }
 }
@@ -680,7 +680,7 @@ authed: true
             "#
             .trim(),
             r#"
-extension ApiClient {
+extension APIClient {
   func test(sessionToken: String) async throws -> Response<Int> {
     return try await self.fetcher.get(from: "/_fen_/test", sessionToken: sessionToken)
   }
@@ -722,7 +722,7 @@ Job (
             "#
             .trim(),
             r#"
-extension ApiClient {
+extension APIClient {
   /// Just testing out enums
   func enumTest(sessionToken: String) async throws -> Response<EnumTestOutput> {
     return try await self.fetcher.get(from: "/_fen_/enum-test", sessionToken: sessionToken)
@@ -767,13 +767,14 @@ description: "Just testing out some more enums"
             "#
             .trim(),
             r#"
-extension ApiClient {
+extension APIClient {
   /// Just testing out some more enums
   func anotherEnumTest(input: AnotherEnumTestInput) async throws -> Response<NoData> {
     return try await self.fetcher.post(
       to: "/_fen_/another-enum-test",
       with: input,
-      returning: NoData.self
+      returning: NoData.self,
+      sessionToken: nil
     )
   }
 }

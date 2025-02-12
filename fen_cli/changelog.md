@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.0]
+- swift: rename `ApiClient` -> `APIClient`
+- swift: made `Fetcher` into a protocol and expose a `LiveFetcher` implementation (for testing purposes)
+- swift: flattened `Response` type (no more `SuccessResponse` and `FailureResponse`)
+
 ## [0.3.1]
 - swift: make generated structs and enums `Equatable`
 
