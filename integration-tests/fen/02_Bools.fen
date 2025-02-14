@@ -1,0 +1,7 @@
+name: "BoolsTest"
+
+---
+
+@input Bool
+
+@output Bool

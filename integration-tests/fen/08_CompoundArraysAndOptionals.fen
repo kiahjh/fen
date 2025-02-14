@@ -1,0 +1,7 @@
+name: "CompoundArraysAndOptionalsTest"
+
+---
+
+@input [[Int]?]
+
+@output [UUID]?
