@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.0]
+- tag values in enums with associated values adjacently as `data` (https://serde.rs/enum-representations.html#adjacently-tagged)
+- rust: derive `Eq` and `PartialEq` for generated structs and enums
+
 ## [0.4.0]
 - swift: rename `ApiClient` -> `APIClient`
 - swift: made `Fetcher` into a protocol and expose a `LiveFetcher` implementation (for testing purposes)

@@ -284,7 +284,7 @@ impl GenCode for StructDefinition {
     fn rust_server_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
 
-        lines.push("#[derive(Serialize, Deserialize, Debug, Clone)]".to_string());
+        lines.push("#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]".to_string());
         lines.push("#[serde(rename_all = \"camelCase\")]".to_string());
         lines.push(format!(
             "pub struct {} {{",
@@ -333,14 +333,21 @@ impl GenCode for EnumDefinition {
         let mut lines = vec![];
 
         lines.push(format!(
-            "#[derive(Serialize, Deserialize, Debug, Clone{})]",
+            "#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq{})]",
             if self.annotations.is_empty() {
                 ""
             } else {
                 ", sqlx::Type"
             }
         ));
-        lines.push("#[serde(tag = \"type\", rename_all = \"camelCase\")]".to_string());
+        lines.push(format!(
+            "#[serde(tag = \"type\", {}rename_all = \"camelCase\")]",
+            if self.variants.iter().any(|v| v.t.is_some()) {
+                "content = \"data\", "
+            } else {
+                ""
+            }
+        ));
         if self.annotations.contains(&"sqlxType".to_string()) {
             lines.push(format!(
                 "#[sqlx(type_name = \"{}\", rename_all = \"SCREAMING_SNAKE_CASE\")]",
@@ -833,7 +840,7 @@ use uuid::Uuid;
 
 pub type Output = Vec<Todo>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Todo {
     pub id: Uuid,
@@ -906,7 +913,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -914,20 +921,20 @@ pub struct Input {
     pub bar: Option<Vec<DateTime<Utc>>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Output {
     pub stuff: Vec<Thing>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Thing {
     pub type: ThingType,
     pub happy: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ThingType {
     A,
@@ -960,7 +967,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -992,7 +999,7 @@ name: "YetAnotherTest"
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -1058,14 +1065,14 @@ Job (
             r#"
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum Output {
     Single,
     Married(Spouse),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Spouse {
     pub name: String,
@@ -1074,8 +1081,8 @@ pub struct Spouse {
     pub ocupation: Job,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum Job {
     Developer,
     Construction,
@@ -1104,8 +1111,8 @@ description: "Just testing out some more enums"
             r#"
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum Input {
     A,
     B(isize),
@@ -1151,7 +1158,7 @@ use uuid::Uuid;
 
 pub type Output = Vec<Song>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Song {
     pub id: Uuid,
@@ -1159,7 +1166,7 @@ pub struct Song {
     pub familiarity: FamiliarityLevel,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, sqlx::Type)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[sqlx(type_name = "familiarity_level", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum FamiliarityLevel {

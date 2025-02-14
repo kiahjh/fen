@@ -1,0 +1,15 @@
+name: "BasicStructsTest"
+description: "Get a person by their id"
+
+---
+
+@input {
+  id: UUID
+}
+
+@output {
+  name: String
+  age: Int
+  birthday: Date
+  has_beard: Bool
+}

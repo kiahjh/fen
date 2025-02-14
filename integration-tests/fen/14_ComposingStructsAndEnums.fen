@@ -1,0 +1,34 @@
+name: "ComposingStructsAndEnumsTest"
+
+---
+
+@output Person
+
+---
+
+Person {
+  name: String
+  birthday: Date
+  id: UUID
+  car: Car
+}
+
+Car {
+  color: String
+  gear: Gear
+}
+
+Gear (
+  park
+  neutral
+  reverse
+  drive(Speed)
+)
+
+Speed (
+  first
+  second
+  third
+  fourth
+  fifth
+)
