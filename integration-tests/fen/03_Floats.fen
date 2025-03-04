@@ -1,0 +1,7 @@
+name: "FloatsTest"
+
+---
+
+@input Float
+
+@output Float

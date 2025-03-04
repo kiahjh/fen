@@ -1,0 +1,14 @@
+name: "BasicEnumsTest"
+
+---
+
+@input (
+  happy
+  sad
+)
+
+@output (
+  foo
+  bar
+  baz
+)

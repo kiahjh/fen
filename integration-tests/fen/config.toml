@@ -1,0 +1,7 @@
+[client]
+output = [{ language = "swift", path = "client/SwiftClient/Sources/SwiftClient/Types/" }]
+endpoint_dev = "http://localhost:4000"
+endpoint_prod = ""
+
+[server]
+output = { language = "rust", path = "server/rust_server/src/types/" }

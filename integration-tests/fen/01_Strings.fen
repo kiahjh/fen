@@ -1,0 +1,7 @@
+name: "StringsTest"
+
+---
+
+@input String
+
+@output String

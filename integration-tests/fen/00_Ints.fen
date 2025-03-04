@@ -1,0 +1,7 @@
+name: "IntsTest"
+
+---
+
+@input Int
+
+@output Int
