@@ -284,7 +284,7 @@ impl GenCode for StructDefinition {
     fn rust_server_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
 
-        lines.push("#[derive(Serialize, Deserialize, Debug, Clone)]".to_string());
+        lines.push("#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]".to_string());
         lines.push("#[serde(rename_all = \"camelCase\")]".to_string());
         lines.push(format!(
             "pub struct {} {{",
@@ -317,15 +317,106 @@ impl GenCode for EnumDefinition {
     fn swift_client_code(&self, ctx: &Context) -> String {
         let mut lines = vec![];
 
-        lines.push(format!(
-            "enum {}: Codable, Equatable {{",
-            ctx.override_name.as_ref().map_or(&self.name, |n| n),
-        ));
+        let enum_name = ctx.override_name.as_ref().map_or(&self.name, |n| n);
+
+        lines.push(format!("enum {enum_name}: Codable, Equatable {{",));
         for variant in &self.variants {
             lines.push(variant.swift_client_code(ctx));
         }
-        lines.push("}".to_string());
 
+        // coding keys
+        lines.push(String::new());
+        lines.push("  private enum CodingKeys: String, CodingKey {".to_string());
+        lines.push("    case type".to_string());
+        if self.variants.iter().any(|v| v.t.is_some()) {
+            lines.push("    case value".to_string());
+        }
+        lines.push("  }".to_string());
+
+        // key types
+        let key_types_name = format!("{enum_name}Type");
+        lines.push(String::new());
+        lines.push(format!(
+            "  private enum {key_types_name}: String, Codable {{",
+        ));
+        for variant in &self.variants {
+            lines.push(format!("    case {}", snake_to_camel(&variant.name)));
+        }
+        lines.push("  }".to_string());
+
+        // init from decoder
+        lines.push(String::new());
+        lines.push("  init(from decoder: Decoder) throws {".to_string());
+        lines.push(
+            "    let container = try decoder.container(keyedBy: CodingKeys.self)".to_string(),
+        );
+        lines.push(format!(
+            "    let type = try container.decode({key_types_name}.self, forKey: .type)"
+        ));
+        lines.push(String::new());
+        lines.push("    switch type {".to_string());
+        for variant in &self.variants {
+            lines.push(format!("    case .{}:", snake_to_camel(&variant.name)));
+            match &variant.t {
+                Some(Type::Optional(t)) => {
+                    lines.push(format!(
+                        "      let value = try container.decodeIfPresent({}.self, forKey: .value)",
+                        t.swift_client_code(ctx)
+                    ));
+                    lines.push(format!(
+                        "      self = .{}(value)",
+                        snake_to_camel(&variant.name)
+                    ));
+                }
+                Some(other) => {
+                    lines.push(format!(
+                        "      let value = try container.decode({}.self, forKey: .value)",
+                        other.swift_client_code(ctx)
+                    ));
+                    lines.push(format!(
+                        "      self = .{}(value)",
+                        snake_to_camel(&variant.name)
+                    ));
+                }
+                None => {
+                    lines.push(format!("      self = .{}", snake_to_camel(&variant.name)));
+                }
+            };
+        }
+        lines.push("    }".to_string());
+        lines.push("  }".to_string());
+
+        // encode
+        lines.push(String::new());
+        lines.push("  func encode(to encoder: Encoder) throws {".to_string());
+        lines.push("    var container = encoder.container(keyedBy: CodingKeys.self)".to_string());
+        lines.push(String::new());
+        lines.push("    switch self {".to_string());
+        for variant in &self.variants {
+            if let Some(_) = &variant.t {
+                lines.push(format!(
+                    "    case .{}(let value):",
+                    snake_to_camel(&variant.name)
+                ));
+                lines.push(format!(
+                    "      try container.encode({}.{}, forKey: .type)",
+                    key_types_name,
+                    snake_to_camel(&variant.name)
+                ));
+                lines.push("      try container.encode(value, forKey: .value)".to_string());
+            } else {
+                lines.push(format!("    case .{}:", snake_to_camel(&variant.name)));
+                lines.push(format!(
+                    "      try container.encode({}.{}, forKey: .type)",
+                    key_types_name,
+                    snake_to_camel(&variant.name)
+                ));
+            }
+        }
+        lines.push("    }".to_string());
+        lines.push("  }".to_string());
+
+        lines.push("}".to_string());
         lines.join("\n")
     }
 
@@ -333,14 +424,21 @@ impl GenCode for EnumDefinition {
         let mut lines = vec![];
 
         lines.push(format!(
-            "#[derive(Serialize, Deserialize, Debug, Clone{})]",
+            "#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq{})]",
             if self.annotations.is_empty() {
                 ""
             } else {
                 ", sqlx::Type"
             }
         ));
-        lines.push("#[serde(tag = \"type\", rename_all = \"camelCase\")]".to_string());
+        lines.push(format!(
+            "#[serde(tag = \"type\", {}rename_all = \"camelCase\")]",
+            if self.variants.iter().any(|v| v.t.is_some()) {
+                "content = \"value\", "
+            } else {
+                ""
+            }
+        ));
         if self.annotations.contains(&"sqlxType".to_string()) {
             lines.push(format!(
                 "#[sqlx(type_name = \"{}\", rename_all = \"SCREAMING_SNAKE_CASE\")]",
@@ -364,7 +462,7 @@ impl GenCode for Variant {
     fn swift_client_code(&self, ctx: &Context) -> String {
         format!(
             "  case {}{}",
-            self.name,
+            snake_to_camel(&self.name),
             self.t
                 .as_ref()
                 .map_or_else(String::new, |t| format!("({})", t.swift_client_code(ctx)))
@@ -543,9 +641,9 @@ Thing {
 }
 
 ThingType (
-  a
-  b
-  c
+  first_option
+  second_option
+  third_option
 )
             "#
             .trim(),
@@ -579,9 +677,46 @@ struct Thing: Codable, Equatable {
 }
 
 enum ThingType: Codable, Equatable {
-  case a
-  case b
-  case c
+  case firstOption
+  case secondOption
+  case thirdOption
+
+  private enum CodingKeys: String, CodingKey {
+    case type
+  }
+
+  private enum ThingTypeType: String, Codable {
+    case firstOption
+    case secondOption
+    case thirdOption
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let type = try container.decode(ThingTypeType.self, forKey: .type)
+
+    switch type {
+    case .firstOption:
+      self = .firstOption
+    case .secondOption:
+      self = .secondOption
+    case .thirdOption:
+      self = .thirdOption
+    }
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    switch self {
+    case .firstOption:
+      try container.encode(ThingTypeType.firstOption, forKey: .type)
+    case .secondOption:
+      try container.encode(ThingTypeType.secondOption, forKey: .type)
+    case .thirdOption:
+      try container.encode(ThingTypeType.thirdOption, forKey: .type)
+    }
+  }
 }
             "#
             .trim(),
@@ -690,6 +825,7 @@ extension APIClient {
         );
     }
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn enum_output_with_helpers() {
         expect_swift(
@@ -732,6 +868,41 @@ extension APIClient {
 enum EnumTestOutput: Codable, Equatable {
   case single
   case married(Spouse)
+
+  private enum CodingKeys: String, CodingKey {
+    case type
+    case value
+  }
+
+  private enum EnumTestOutputType: String, Codable {
+    case single
+    case married
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let type = try container.decode(EnumTestOutputType.self, forKey: .type)
+
+    switch type {
+    case .single:
+      self = .single
+    case .married:
+      let value = try container.decode(Spouse.self, forKey: .value)
+      self = .married(value)
+    }
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    switch self {
+    case .single:
+      try container.encode(EnumTestOutputType.single, forKey: .type)
+    case .married(let value):
+      try container.encode(EnumTestOutputType.married, forKey: .type)
+      try container.encode(value, forKey: .value)
+    }
+  }
 }
 
 struct Spouse: Codable, Equatable {
@@ -745,6 +916,46 @@ enum Job: Codable, Equatable {
   case developer
   case construction
   case other(String?)
+
+  private enum CodingKeys: String, CodingKey {
+    case type
+    case value
+  }
+
+  private enum JobType: String, Codable {
+    case developer
+    case construction
+    case other
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let type = try container.decode(JobType.self, forKey: .type)
+
+    switch type {
+    case .developer:
+      self = .developer
+    case .construction:
+      self = .construction
+    case .other:
+      let value = try container.decodeIfPresent(String.self, forKey: .value)
+      self = .other(value)
+    }
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    switch self {
+    case .developer:
+      try container.encode(JobType.developer, forKey: .type)
+    case .construction:
+      try container.encode(JobType.construction, forKey: .type)
+    case .other(let value):
+      try container.encode(JobType.other, forKey: .type)
+      try container.encode(value, forKey: .value)
+    }
+  }
 }
             "#
             .trim(),
@@ -782,6 +993,41 @@ extension APIClient {
 enum AnotherEnumTestInput: Codable, Equatable {
   case a
   case b(Int)
+
+  private enum CodingKeys: String, CodingKey {
+    case type
+    case value
+  }
+
+  private enum AnotherEnumTestInputType: String, Codable {
+    case a
+    case b
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let type = try container.decode(AnotherEnumTestInputType.self, forKey: .type)
+
+    switch type {
+    case .a:
+      self = .a
+    case .b:
+      let value = try container.decode(Int.self, forKey: .value)
+      self = .b(value)
+    }
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    switch self {
+    case .a:
+      try container.encode(AnotherEnumTestInputType.a, forKey: .type)
+    case .b(let value):
+      try container.encode(AnotherEnumTestInputType.b, forKey: .type)
+      try container.encode(value, forKey: .value)
+    }
+  }
 }
             "#
             .trim(),
@@ -833,7 +1079,7 @@ use uuid::Uuid;
 
 pub type Output = Vec<Todo>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Todo {
     pub id: Uuid,
@@ -906,7 +1152,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -914,20 +1160,20 @@ pub struct Input {
     pub bar: Option<Vec<DateTime<Utc>>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Output {
     pub stuff: Vec<Thing>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Thing {
     pub type: ThingType,
     pub happy: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ThingType {
     A,
@@ -960,7 +1206,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -992,7 +1238,7 @@ name: "YetAnotherTest"
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Input {
     pub id: Uuid,
@@ -1058,14 +1304,14 @@ Job (
             r#"
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Output {
     Single,
     Married(Spouse),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Spouse {
     pub name: String,
@@ -1074,8 +1320,8 @@ pub struct Spouse {
     pub ocupation: Job,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Job {
     Developer,
     Construction,
@@ -1104,8 +1350,8 @@ description: "Just testing out some more enums"
             r#"
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Input {
     A,
     B(isize),
@@ -1151,7 +1397,7 @@ use uuid::Uuid;
 
 pub type Output = Vec<Song>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Song {
     pub id: Uuid,
@@ -1159,7 +1405,7 @@ pub struct Song {
     pub familiarity: FamiliarityLevel,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, sqlx::Type)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, sqlx::Type)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[sqlx(type_name = "familiarity_level", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum FamiliarityLevel {

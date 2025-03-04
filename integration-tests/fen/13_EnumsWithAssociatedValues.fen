@@ -1,0 +1,8 @@
+name: "EnumsWithAssociatedValuesTest"
+
+---
+
+@output (
+  first_option(Int)
+  second_option([String])
+)

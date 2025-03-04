@@ -18,5 +18,9 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build
       run: cd fen_cli && cargo build --verbose
-    - name: Run tests
+    - name: Run cli tests
       run: cd fen_cli && cargo test --verbose
+    - name: Run integration tests (swift client)
+      run: cd integration-tests/client/SwiftClient && swift test
+    - name: Run integration tests (rust server)
+      run: cd integration-tests/server/rust_server && cargo test --verbose
