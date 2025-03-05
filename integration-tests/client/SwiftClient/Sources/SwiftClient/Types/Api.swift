@@ -1,4 +1,4 @@
-// Created by Fen v0.5.0 at 16:59:07 on 2025-03-04
+// Created by Fen v0.5.1 at 21:15:42 on 2025-03-04
 // Do not manually modify this file as it is automatically generated
 
 import Foundation
@@ -61,7 +61,7 @@ struct LiveFetcher: Fetcher {
 
     if tag.type == "success" {
       let response = try APIClient.decode(data, type: SuccessResponse<T>.self)
-      return .success(response.data)
+      return .success(response.value)
     } else {
       let response = try APIClient.decode(data, type: FailureResponse.self)
       return .failure(message: response.message, status: response.status)
@@ -90,7 +90,7 @@ struct LiveFetcher: Fetcher {
     let tag = try APIClient.decode(data, type: ResponseType.self)
     if tag.type == "success" {
       let response = try APIClient.decode(data, type: SuccessResponse<T>.self)
-      return .success(response.data)
+      return .success(response.value)
     } else {
       let response = try APIClient.decode(data, type: FailureResponse.self)
       return .failure(message: response.message, status: response.status)
@@ -110,7 +110,7 @@ enum Response<T: Decodable & Sendable>: Decodable, Sendable {
 }
 
 struct SuccessResponse<T: Decodable & Sendable>: Decodable, Sendable {
-  let data: T
+  let value: T
 }
 
 struct FailureResponse: Decodable {

@@ -12,11 +12,11 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": 42
+          "value": 42
         }
         """
     let output = try APIClient.decode(outputJson, type: SuccessResponse<Int>.self)
-    #expect(output.data == 42)
+    #expect(output.value == 42)
 }
 
 @Test func strings() throws {
@@ -28,11 +28,11 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": "hello"
+          "value": "hello"
         }
         """
     let output = try APIClient.decode(outputJson, type: SuccessResponse<String>.self)
-    #expect(output.data == "hello")
+    #expect(output.value == "hello")
 }
 
 @Test func bools() throws {
@@ -44,11 +44,11 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": true
+          "value": true
         }
         """
     let output = try APIClient.decode(outputJson, type: SuccessResponse<Bool>.self)
-    #expect(output.data == true)
+    #expect(output.value == true)
 }
 
 @Test func floats() throws {
@@ -60,11 +60,11 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": 3.14
+          "value": 3.14
         }
         """
     let output = try APIClient.decode(outputJson, type: SuccessResponse<Double>.self)
-    #expect(output.data == 3.14)
+    #expect(output.value == 3.14)
 }
 
 @Test func uuids() throws {
@@ -76,11 +76,11 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": "00000000-0000-0000-0000-000000000000"
+          "value": "00000000-0000-0000-0000-000000000000"
         }
         """
     let output = try APIClient.decode(outputJson, type: SuccessResponse<UUID>.self)
-    #expect(output.data == UUID(uuidString: "00000000-0000-0000-0000-000000000000"))
+    #expect(output.value == UUID(uuidString: "00000000-0000-0000-0000-000000000000"))
 }
 
 @Test func dates() throws {
@@ -92,11 +92,11 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": "1970-01-01T00:00:00Z"
+          "value": "1970-01-01T00:00:00Z"
         }
         """
     let output = try APIClient.decode(outputJson, type: SuccessResponse<Date>.self)
-    #expect(output.data == Date(timeIntervalSince1970: 0))
+    #expect(output.value == Date(timeIntervalSince1970: 0))
 }
 
 @Test func arrays() throws {
@@ -108,12 +108,12 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": ["00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]
+          "value": ["00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]
         }
         """
     let output = try APIClient.decode(outputJson, type: SuccessResponse<[UUID]>.self)
     #expect(
-        output.data == [
+        output.value == [
             UUID(uuidString: "00000000-0000-0000-0000-000000000000"),
             UUID(uuidString: "00000000-0000-0000-0000-000000000001"),
             UUID(uuidString: "00000000-0000-0000-0000-000000000002"),
@@ -134,19 +134,19 @@ import Testing
     // output
     let outputJson1 = """
         {
-          "data": "1970-01-01T00:00:00Z"
+          "value": "1970-01-01T00:00:00Z"
         }
         """
     let output1 = try APIClient.decode(outputJson1, type: SuccessResponse<Date?>.self)
-    #expect(output1.data == Date(timeIntervalSince1970: 0))
+    #expect(output1.value == Date(timeIntervalSince1970: 0))
 
     let outputJson2 = """
         {
-          "data": null
+          "value": null
         }
         """
     let output2 = try APIClient.decode(outputJson2, type: SuccessResponse<Date?>.self)
-    #expect(output2.data == nil)
+    #expect(output2.value == nil)
 }
 
 @Test func compoundArraysAndOptionals() throws {
@@ -158,12 +158,12 @@ import Testing
     // output
     let outputJson1 = """
         {
-          "data": ["00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]
+          "value": ["00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]
         }
         """
     let output1 = try APIClient.decode(outputJson1, type: SuccessResponse<[UUID]?>.self)
     #expect(
-        output1.data! == [
+        output1.value! == [
             UUID(uuidString: "00000000-0000-0000-0000-000000000000"),
             UUID(uuidString: "00000000-0000-0000-0000-000000000001"),
             UUID(uuidString: "00000000-0000-0000-0000-000000000002"),
@@ -172,11 +172,11 @@ import Testing
 
     let outputJson2 = """
         {
-          "data": null
+          "value": null
         }
         """
     let output2 = try APIClient.decode(outputJson2, type: SuccessResponse<[UUID]?>.self)
-    #expect(output2.data == nil)
+    #expect(output2.value == nil)
 }
 
 @Test func basicStructs() throws {
@@ -189,7 +189,7 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": {
+          "value": {
             "name": "Alice",
             "age": 42,
             "birthday": "1970-01-01T00:00:00Z",
@@ -200,7 +200,7 @@ import Testing
     let output = try APIClient.decode(
         outputJson, type: SuccessResponse<BasicStructsTestOutput>.self)
     #expect(
-        output.data
+        output.value
             == BasicStructsTestOutput(
                 name: "Alice",
                 age: 42,
@@ -223,7 +223,7 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": {
+          "value": {
             "bar": [3, null, 1]
           }
         }
@@ -232,7 +232,7 @@ import Testing
         outputJson, type: SuccessResponse<StructsWithCompoundTypesTestOutput>.self
     )
     #expect(
-        output.data
+        output.value
             == StructsWithCompoundTypesTestOutput(
                 bar: [3, nil, 1]
             )
@@ -245,7 +245,7 @@ import Testing
     // output
     let outputJson = """
         {
-          "data": {
+          "value": {
             "name": "Alice",
             "birthday": "1970-01-01T00:00:00Z",
             "vehicle": {
@@ -259,7 +259,7 @@ import Testing
         outputJson, type: SuccessResponse<Human>.self
     )
     #expect(
-        output.data
+        output.value
             == Human(
                 name: "Alice",
                 birthday: Date(timeIntervalSince1970: 0),
@@ -281,7 +281,7 @@ import Testing
     // output
     let outputJson1 = """
         {
-          "data": {
+          "value": {
             "type": "foo"
           }
         }
@@ -289,11 +289,11 @@ import Testing
     let output1 = try APIClient.decode(
         outputJson1, type: SuccessResponse<BasicEnumsTestOutput>.self
     )
-    #expect(output1.data == BasicEnumsTestOutput.foo)
+    #expect(output1.value == BasicEnumsTestOutput.foo)
 
     let outputJson2 = """
         {
-          "data": {
+          "value": {
             "type": "bar"
           }
         }
@@ -301,7 +301,7 @@ import Testing
     let output2 = try APIClient.decode(
         outputJson2, type: SuccessResponse<BasicEnumsTestOutput>.self
     )
-    #expect(output2.data == BasicEnumsTestOutput.bar)
+    #expect(output2.value == BasicEnumsTestOutput.bar)
 }
 
 @Test func enumsWithAssociatedValues() throws {
@@ -310,7 +310,7 @@ import Testing
     // output
     let outputJson1 = """
         {
-          "data": {
+          "value": {
             "type": "firstOption",
             "value": 42
           }
@@ -319,11 +319,11 @@ import Testing
     let output1 = try APIClient.decode(
         outputJson1, type: SuccessResponse<EnumsWithAssociatedValuesTestOutput>.self
     )
-    #expect(output1.data == .firstOption(42))
+    #expect(output1.value == .firstOption(42))
 
     let outputJson2 = """
         {
-          "data": {
+          "value": {
             "type": "secondOption",
             "value": ["hello", "world"]
           }
@@ -332,7 +332,7 @@ import Testing
     let output2 = try APIClient.decode(
         outputJson2, type: SuccessResponse<EnumsWithAssociatedValuesTestOutput>.self
     )
-    #expect(output2.data == .secondOption(["hello", "world"]))
+    #expect(output2.value == .secondOption(["hello", "world"]))
 }
 
 @Test func composingStructsAndEnums() throws {
@@ -341,7 +341,7 @@ import Testing
     // output
     let outputJson1 = """
         {
-          "data": {
+          "value": {
             "name": "Alice",
             "birthday": "1970-01-01T00:00:00Z",
             "id": "00000000-0000-0000-0000-000000000000",
@@ -356,7 +356,7 @@ import Testing
         """
     let output1 = try APIClient.decode(outputJson1, type: SuccessResponse<Person>.self)
     #expect(
-        output1.data
+        output1.value
             == Person(
                 name: "Alice",
                 birthday: Date(timeIntervalSince1970: 0),
@@ -367,7 +367,7 @@ import Testing
 
     let outputJson2 = """
         {
-          "data": {
+          "value": {
             "name": "Bob",
             "birthday": "1970-01-01T00:00:00Z",
             "id": "00000000-0000-0000-0000-000000000001",
@@ -385,7 +385,7 @@ import Testing
         """
     let output2 = try APIClient.decode(outputJson2, type: SuccessResponse<Person>.self)
     #expect(
-        output2.data
+        output2.value
             == Person(
                 name: "Bob",
                 birthday: Date(timeIntervalSince1970: 0),
