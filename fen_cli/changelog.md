@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.5.3]
+- swift: handled fractional seconds in iso8601 date decoding
+
 ## [0.5.2]
 - swift: encode `nil` values with explicit `null` in JSON
 

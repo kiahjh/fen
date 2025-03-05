@@ -20,7 +20,7 @@ struct APIClient {
 
   static func decode<T: Decodable>(_ data: Data, type: T.Type) throws -> T {
     let decoder = JSONDecoder()
-    decoder.dateDecodingStrategy = .iso8601
+    decoder.dateDecodingStrategy = .iso8601withOptionalFractionalSeconds
     return try decoder.decode(T.self, from: data)
   }
 
@@ -113,4 +113,19 @@ struct SuccessResponse<T: Decodable & Sendable>: Decodable, Sendable {
 struct FailureResponse: Decodable {
   let message: String
   let status: Int
+}
+
+extension ParseStrategy where Self == Date.ISO8601FormatStyle {
+  static var iso8601withFractionalSeconds: Self { .init(includingFractionalSeconds: true) }
+}
+
+extension JSONDecoder.DateDecodingStrategy {
+  static let iso8601withOptionalFractionalSeconds = custom {
+    let string = try $0.singleValueContainer().decode(String.self)
+    do {
+      return try .init(string, strategy: .iso8601withFractionalSeconds)
+    } catch {
+      return try .init(string, strategy: .iso8601)
+    }
+  }
 }

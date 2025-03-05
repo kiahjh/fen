@@ -1,6 +1,6 @@
 [package]
 name = "fen_parser"
-version = "0.5.2"
+version = "0.5.3"
 description = "A parser for Fen"
 edition = "2021"
 repository = "https://github.com/kiahjh/fen"
