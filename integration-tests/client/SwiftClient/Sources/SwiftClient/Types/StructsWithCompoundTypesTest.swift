@@ -1,4 +1,4 @@
-// Created by Fen v0.5.1 at 21:15:42 on 2025-03-04
+// Created by Fen v0.5.2 at 13:10:09 on 2025-03-05
 // Do not manually modify this file as it is automatically generated
 
 extension APIClient {
@@ -14,6 +14,21 @@ extension APIClient {
 
 struct StructsWithCompoundTypesTestInput: Codable, Equatable {
   var foo: String?
+
+  private enum CodingKeys: String, CodingKey {
+    case foo
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    switch self.foo {
+    case let .some(value):
+      try container.encode(value, forKey: .foo)
+    case .none:
+      try container.encodeNil(forKey: .foo)
+    }
+  }
 }
 
 struct StructsWithCompoundTypesTestOutput: Codable, Equatable {

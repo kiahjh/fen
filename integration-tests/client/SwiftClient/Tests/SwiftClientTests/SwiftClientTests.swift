@@ -218,7 +218,7 @@ import Testing
 
     let input2 = StructsWithCompoundTypesTestInput(foo: nil)
     let inputJson2 = try APIClient.encodeAsString(input2)
-    // #expect(inputJson2 == "{\"foo\":null}")
+    #expect(inputJson2 == "{\"foo\":null}")
 
     // output
     let outputJson = """
@@ -392,5 +392,33 @@ import Testing
                 id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 car: Car(color: "blue", gear: .drive(.fifth))
             )
+    )
+}
+
+@Test func arrayOfStructsWithDate() throws {
+    // no input
+
+    // output
+    let outputJson = """
+        {
+          "value": [
+            {
+              "title": "Song 1",
+              "composed": "1970-01-01T00:00:00Z"
+            },
+            {
+              "title": "Song 2",
+              "composed": "1970-01-01T00:00:01Z"
+            }
+          ]
+        }
+        """
+    let output = try APIClient.decode(outputJson, type: SuccessResponse<[Song]>.self)
+    #expect(
+        output.value
+            == [
+                Song(title: "Song 1", composed: Date(timeIntervalSince1970: 0)),
+                Song(title: "Song 2", composed: Date(timeIntervalSince1970: 1)),
+            ]
     )
 }

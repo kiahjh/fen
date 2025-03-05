@@ -320,4 +320,25 @@ mod tests {
             r#"{"type":"success","value":{"name":"George Washington","birthday":"1732-02-22T00:00:00Z","id":"6bc9b6b8-5075-4296-af84-534e6fb5916d","car":{"color":"red","gear":{"type":"drive","value":{"type":"fifth"}}}}}"#,
         );
     }
+
+    #[test]
+    fn array_of_structs_with_date() {
+        // no input
+
+        // output
+        let output: array_of_structs_with_date_test::Output = vec![
+            array_of_structs_with_date_test::Song {
+                title: "Song 1".to_string(),
+                composed: chrono::Utc.with_ymd_and_hms(1904, 3, 5, 0, 0, 0).unwrap(),
+            },
+            array_of_structs_with_date_test::Song {
+                title: "Song 2".to_string(),
+                composed: chrono::Utc.with_ymd_and_hms(1904, 3, 6, 0, 0, 0).unwrap(),
+            },
+        ];
+        assert_response(
+            output,
+            r#"{"type":"success","value":[{"title":"Song 1","composed":"1904-03-05T00:00:00Z"},{"title":"Song 2","composed":"1904-03-06T00:00:00Z"}]}"#,
+        );
+    }
 }
