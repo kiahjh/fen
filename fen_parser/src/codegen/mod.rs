@@ -296,7 +296,7 @@ impl GenCode for StructDefinition {
             );
             lines.push(String::new());
             for field in &self.fields {
-                if let Type::Optional(t) = &field.t {
+                if let Type::Optional(_) = &field.t {
                     lines.push(format!(
                         "    switch self.{} {{",
                         snake_to_camel(&field.name)

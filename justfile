@@ -9,3 +9,9 @@ test:
 
 test-watch:
   @watchexec -i "./**" just test
+
+publish-parser:
+  @cargo publish -p fen_parser
+
+publish-cli:
+  @cargo publish -p fen_cli
