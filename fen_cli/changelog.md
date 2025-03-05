@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.2]
+- swift: encode `nil` values with explicit `null` in JSON
+
+## [0.5.1]
+- swift: fixed naming inconsistency (`data` -> `value`)
+
 ## [0.5.0]
 - tag values in enums with associated values adjacently as `data` (https://serde.rs/enum-representations.html#adjacently-tagged)
 - rust: derive `Eq` and `PartialEq` for generated structs and enums

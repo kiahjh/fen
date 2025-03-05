@@ -1,0 +1,12 @@
+name: "ArrayOfStructsWithDateTest"
+
+---
+
+@output [Song]
+
+---
+
+Song {
+  title: String
+  composed: Date
+}

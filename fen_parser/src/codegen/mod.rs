@@ -277,6 +277,52 @@ impl GenCode for StructDefinition {
         for field in &self.fields {
             lines.push(field.swift_client_code(ctx));
         }
+
+        // if any of the fields are Type::Optional:
+        if self.fields.iter().any(|f| matches!(f.t, Type::Optional(_))) {
+            // coding keys
+            lines.push(String::new());
+            lines.push("  private enum CodingKeys: String, CodingKey {".to_string());
+            for field in &self.fields {
+                lines.push(format!("    case {}", snake_to_camel(&field.name)));
+            }
+            lines.push("  }".to_string());
+
+            // encode
+            lines.push(String::new());
+            lines.push("  func encode(to encoder: Encoder) throws {".to_string());
+            lines.push(
+                "    var container = encoder.container(keyedBy: CodingKeys.self)".to_string(),
+            );
+            lines.push(String::new());
+            for field in &self.fields {
+                if let Type::Optional(t) = &field.t {
+                    lines.push(format!(
+                        "    switch self.{} {{",
+                        snake_to_camel(&field.name)
+                    ));
+                    lines.push("    case let .some(value):".to_string());
+                    lines.push(format!(
+                        "      try container.encode(value, forKey: .{})",
+                        snake_to_camel(&field.name)
+                    ));
+                    lines.push("    case .none:".to_string());
+                    lines.push(format!(
+                        "      try container.encodeNil(forKey: .{})",
+                        snake_to_camel(&field.name)
+                    ));
+                    lines.push("    }".to_string());
+                } else {
+                    lines.push(format!(
+                        "    try container.encode(self.{}, forKey: .{})",
+                        snake_to_camel(&field.name),
+                        snake_to_camel(&field.name)
+                    ));
+                }
+            }
+            lines.push("  }".to_string());
+        }
+
         lines.push("}".to_string());
         lines.join("\n")
     }
@@ -577,6 +623,34 @@ struct Todo: Codable, Equatable, Identifiable {
   var description: String?
   var due: Date?
   var isCompleted: Bool
+
+  private enum CodingKeys: String, CodingKey {
+    case id
+    case name
+    case description
+    case due
+    case isCompleted
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    try container.encode(self.id, forKey: .id)
+    try container.encode(self.name, forKey: .name)
+    switch self.description {
+    case let .some(value):
+      try container.encode(value, forKey: .description)
+    case .none:
+      try container.encodeNil(forKey: .description)
+    }
+    switch self.due {
+    case let .some(value):
+      try container.encode(value, forKey: .due)
+    case .none:
+      try container.encodeNil(forKey: .due)
+    }
+    try container.encode(self.isCompleted, forKey: .isCompleted)
+  }
 }
             "#
             .trim(),
@@ -615,6 +689,7 @@ extension APIClient {
         );
     }
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn struct_for_input_and_output() {
         expect_swift(
@@ -665,6 +740,25 @@ struct TestInput: Codable, Equatable, Identifiable {
   var id: UUID
   var foo: String
   var bar: [Date]?
+
+  private enum CodingKeys: String, CodingKey {
+    case id
+    case foo
+    case bar
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    try container.encode(self.id, forKey: .id)
+    try container.encode(self.foo, forKey: .foo)
+    switch self.bar {
+    case let .some(value):
+      try container.encode(value, forKey: .bar)
+    case .none:
+      try container.encodeNil(forKey: .bar)
+    }
+  }
 }
 
 struct TestOutput: Codable, Equatable {
@@ -757,6 +851,25 @@ struct TestInput: Codable, Equatable, Identifiable {
   var id: UUID
   var foo: String
   var bar: [Date]?
+
+  private enum CodingKeys: String, CodingKey {
+    case id
+    case foo
+    case bar
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    try container.encode(self.id, forKey: .id)
+    try container.encode(self.foo, forKey: .foo)
+    switch self.bar {
+    case let .some(value):
+      try container.encode(value, forKey: .bar)
+    case .none:
+      try container.encodeNil(forKey: .bar)
+    }
+  }
 }
             "#
             .trim(),

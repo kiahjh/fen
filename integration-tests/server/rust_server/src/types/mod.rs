@@ -1,9 +1,10 @@
-// Created by Fen v0.5.1 at 21:15:42 on 2025-03-04
+// Created by Fen v0.5.2 at 13:10:09 on 2025-03-05
 // Do not manually modify this file as it is automatically generated
 
 pub mod dates_test;
 pub mod strings_test;
 pub mod arrays_test;
+pub mod array_of_structs_with_date_test;
 pub mod basic_enums_test;
 pub mod bools_test;
 pub mod structs_with_compound_types_test;

@@ -6,3 +6,6 @@ stash-cli:
 
 test:
   @cargo test && cd ./integration-tests/client/SwiftClient/ && swift test && cd ../../server/rust_server && cargo test
+
+test-watch:
+  @watchexec -i "./**" just test
